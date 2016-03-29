@@ -6,13 +6,16 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \lstset{
-  language=C++,
+  language=Java,
   tabsize=2,
   belowcaptionskip=1\baselineskip,
   breaklines=true,
   xleftmargin=1cm,
   escapechar=|,
   showstringspaces=false,
+  commentstyle=\color{green},
+  keywordstyle=\color{blue},
+  stringstyle=\color{red},
   basicstyle=\footnotesize\ttfamily,
   numbers=left,
   commentstyle=\usefont{T2A}{fcr}{m}{sl}
@@ -31,16 +34,91 @@
 \author{Автор}
 \begin{document}
 % титульная  страница
-    \begin{frame}
-        \titlepage
-    \end{frame}
-    %структурная разметка
-    \section{Теория}
-    \begin{frame}
-        %заголовок слайда
-        \frametitle{Теоретическая зависимость(Азимов и др.)}
-        \alert{GBee}
-        \pause
-        \alert{Gee}
-    \end{frame}
+\begin{frame}
+    \titlepage
+\end{frame}
+
+%структурная разметка
+\section{Android Manifest}
+\begin{frame}
+    \frametitle{Android Manifest}
+    \begin{itemize}
+    	\item Описание проекта, в том числе настройки и конфигурации, например версии.
+    	\item Прописаны permission и составляющие проекта.
+    \end{itemize}
+\end{frame}
+
+\section{Activity}
+\begin{frame}
+    \frametitle{Activity}
+    \begin{itemize}
+    	\item Первой в программе вызывается MainActivity(? не помню).
+    	\item Цикл жизни.
+   		\item Activity надо прописывать в манифесте.
+   	\end{itemize}
+\end{frame}
+
+\section{BroadCastReceiver}
+\begin{frame}
+    %заголовок слайда
+    \frametitle{BroadCastReceiver}
+    \begin{itemize}
+        \item Один из стандартных классов андроид, завязан на несколько(может один) intent. 
+	    \item Получает интент, к которому он привязан и \alert{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
+		\item Если один BroadCastReceiver соотетствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
+		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его прикончат, чтобы другие intent не ждали.
+		\item Так что обычно, его используют только чтобы послать какой-то другой intent или получить системное оповещение.
+		\item Receiver должен быть прописан в Android манифесте.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    Пример onReceive():
+    \begin{lstlisting}[basicstyle=\tiny]
+@Override
+    public void onReceive(Context context, Intent intent) {
+        Log.d(TAG, "SMS received");
+
+        Bundle bundle = intent.getExtras();
+        if (bundle == null)
+            return;
+
+        byte pdus[][] = (byte[][])bundle.get(PDUS_KEY);
+        StringBuilder builder = new StringBuilder();
+        String origin = null;
+        for (int i = 0; i != pdus.length; ++i) {
+            SmsMessage sms = SmsMessage.createFromPdu(pdus[i]);
+            String text = sms.getDisplayMessageBody();
+            builder.append(text);
+            origin = sms.getDisplayOriginatingAddress();
+        }
+
+        String text = builder.toString();
+        //showToast(context, origin, text);
+        saveToDatabse(context, origin, text);
+        showActivity(context, origin, text);
+    }		    
+    \end{lstlisting}
+\end{frame}
+\begin{frame}[fragile]    
+    Запись в AndroidManifest:
+    \begin{lstlisting}
+        <receiver
+            android:name=".SMSReceiver"
+            android:enabled="true"
+            android:exported="true" >
+
+            <!-- exported must be true to receive system-wide notifications -->
+
+            <intent-filter android:priority="1" >
+
+                <!--
+                 priority must be greater than 0, because default sms manager has priority 0
+                 and we need to handle incoming sms before default manager
+                -->
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+    \end{lstlisting}		    
+\end{frame}
 \end{document}
