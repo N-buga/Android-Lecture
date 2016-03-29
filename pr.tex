@@ -4,6 +4,7 @@
 \usepackage[russian]{babel}
 \usepackage{amsthm, amsmath, amssymb}
 \usepackage{xcolor}
+\definecolor{mygreen}{rgb}{0,0.6,0}
 \usepackage{listings}
 \lstset{
   language=Java,
@@ -15,7 +16,7 @@
   showstringspaces=false,
   commentstyle=\color{green},
   keywordstyle=\color{blue},
-  stringstyle=\color{red},
+  stringstyle=\color{mygreen},
   basicstyle=\footnotesize\ttfamily,
   numbers=left,
   commentstyle=\usefont{T2A}{fcr}{m}{sl}
@@ -68,57 +69,137 @@
 		\item Если один BroadCastReceiver соотетствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
 		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его прикончат, чтобы другие intent не ждали.
 		\item Так что обычно, его используют только чтобы послать какой-то другой intent или получить системное оповещение.
-		\item Receiver должен быть прописан в Android манифесте.
+ 		\item Receiver должен быть прописан в Android манифесте.
     \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]
+    \frametitle{BroadCastReceiver}
+    \begin{itemize}    
+ 	    \item Подписку на intent можно тоже записать в Manifest.
+ 	\end{itemize}
+    \begin{lstlisting}
+<receiver android:name=".LocationChangedReceiver" />
+    \end{lstlisting}		    
+\end{frame}
+\begin{frame}[fragile]
+    \begin{itemize}
+        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё inplicit intent. На самом деле здесь посылается не intent а наследник класса Intent - PendingIntent, в котором учитываются права приложения, из которого нас запустили. 
+        \item Intent - это такой способ общаться между частями приложения. В него можно записать дополнительную информацию.
+        \begin{lstlisting}
+startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
+        \end{lstlisting}        
+        \item Доставать информацию из Intent можно так:
+        \begin{lstlisting}
+Location location = (Location) intent.getExtras().get(locationKey);
+        \end{lstlisting}
+        \item Класс Context - это базовый класс для частей приложения. К примеру, Activity - наследник класса Context. Он предоставляет доступ ко всем андроидовским ресурсам. BroadCastReceiver не является наследником класса Context, поэтому он туда передаётся.
+    \end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{BroadCastReceiver}
     Пример onReceive():
     \begin{lstlisting}[basicstyle=\tiny]
 @Override
-    public void onReceive(Context context, Intent intent) {
-        Log.d(TAG, "SMS received");
+public void onReceive(Context context, Intent intent) {
+    final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
 
-        Bundle bundle = intent.getExtras();
-        if (bundle == null)
-            return;
+    if (intent.hasExtra(locationKey)) {
+        Location location = 
+                    (Location) intent.getExtras().get(locationKey);
 
-        byte pdus[][] = (byte[][])bundle.get(PDUS_KEY);
-        StringBuilder builder = new StringBuilder();
-        String origin = null;
-        for (int i = 0; i != pdus.length; ++i) {
-            SmsMessage sms = SmsMessage.createFromPdu(pdus[i]);
-            String text = sms.getDisplayMessageBody();
-            builder.append(text);
-            origin = sms.getDisplayOriginatingAddress();
-        }
-
-        String text = builder.toString();
-        //showToast(context, origin, text);
-        saveToDatabse(context, origin, text);
-        showActivity(context, origin, text);
-    }		    
+        Intent startService = 
+                        new Intent(context, ForecastUpdateService.class);
+        startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
+        context.startService(startService);
+    }
+} 
     \end{lstlisting}
 \end{frame}
-\begin{frame}[fragile]    
-    Запись в AndroidManifest:
+\begin{frame}[fragile]
+    \frametitle{Log}
+    \begin{itemize}
+        \item Записи в log выводятся на экран Logcat.
+        \item Логирование происходит так:
+    \end{itemize}
     \begin{lstlisting}
-        <receiver
-            android:name=".SMSReceiver"
-            android:enabled="true"
-            android:exported="true" >
+    ...
+private static final String TAG = 
+            SMSReceiver.class.getSimpleName();
+    ...
+Log.d(TAG, "SMS received");    
+    \end{lstlisting}
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{Permissions}
+    \begin{itemize}
+        \item Чтобы работать с сетью надо подключить соотетсвующие permission.
+        \begin{lstlisting}
+<uses-permission android:name="android.permission.INTERNET" /> 
+<uses-permission  android:name="android.permission.ACCESS_NETWORK_STATE"/>        
+        \end{lstlisting}
+    \end{itemize}
+\end{frame}
+\section{Service}    
+\begin{frame}[fragile]
+    \frametitle{Service}
+    \begin{itemize}
+        \item Service также надо прописывать в манифесете:
+        \begin{lstlisting}
+<service
+    android:name=".DatabaseService"
+    android:exported="false" >
+</service>        
+        \end{lstlisting}
+        \item Для того, чтобы делать продолжительные действия BroadCastReceiver не подходит. Для этого нужно использовать Service.
+        \item Ключик exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд.
+    \end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{Service}
+    \begin{itemize}
+        \item Если к нему обращаются много intent, они также становятся в очередь.
+        \item Запускают intent к service через команду startService(...);
+        \item При обработке intent запускается метод onHandleIntent(Intent intent);
+    \end{itemize}
+\end{frame}
+\section{Connection}
+\begin{frame}[fragile]
+    \frametitle{Connection}
+    \begin{itemize}
+        \item Самый простой способ работать с сетью - это HttpURLConnection.
+        \item Возвращается методом .openConnection():
+        \begin{lstlisting}
+URL url = new URL(uri.toString());
+connection = 
+        (HttpURLConnection) url.openConnection();
+        \end{lstlisting}
+        \item Протокол http может обрабатывать различные запросы. Например, запрос на получение информации. Если мы хотим получить информацию - пишем следующее:
+        \begin{lstlisting}
+connection.setRequestMethod("GET");
+connection.connect();
+        \end{lstlisting}
+    \end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{Connection}
+    Пример считывания информации:
+    \begin{lstlisting}[basicstyle=\tiny]
+InputStream inputStream = connection.getInputStream();
+StringBuilder buffer = new StringBuilder();
+if (inputStream == null) {
+    return;
+}
+reader = new BufferedReader(new InputStreamReader(inputStream));
+String line;
+while ((line = reader.readLine()) != null) {
+    buffer.append(line);
+    buffer.append("\n");
+}
 
-            <!-- exported must be true to receive system-wide notifications -->
-
-            <intent-filter android:priority="1" >
-
-                <!--
-                 priority must be greater than 0, because default sms manager has priority 0
-                 and we need to handle incoming sms before default manager
-                -->
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-            </intent-filter>
-        </receiver>
-    \end{lstlisting}		    
+if (buffer.length() == 0) {
+    return;
+}
+    \end{lstlisting}
 \end{frame}
 \end{document}
