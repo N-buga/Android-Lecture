@@ -1,0 +1,46 @@
+\documentclass[utf8]{beamer}
+\usepackage [utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+\usepackage{amsthm, amsmath, amssymb}
+\usepackage{xcolor}
+\usepackage{listings}
+\lstset{
+  language=C++,
+  tabsize=2,
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=1cm,
+  escapechar=|,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  numbers=left,
+  commentstyle=\usefont{T2A}{fcr}{m}{sl}
+}
+
+\renewcommand{\O}{\mathcal{O}}
+\newcommand{\SO}{\Rightarrow}
+\newcommand{\EQ}{\Leftrightarrow}
+\newcommand{\union}{\cup}
+\renewcommand{\div}{\mathop{\raisebox{-2pt}{\vdots}}}
+
+\usetheme{Madrid}
+\useoutertheme{shadow}
+\title{Заголовок}
+\date{Дата или место проведения}
+\author{Автор}
+\begin{document}
+% титульная  страница
+    \begin{frame}
+        \titlepage
+    \end{frame}
+    %структурная разметка
+    \section{Теория}
+    \begin{frame}
+        %заголовок слайда
+        \frametitle{Теоретическая зависимость(Азимов и др.)}
+        \alert{GBee}
+        \pause
+        \alert{Gee}
+    \end{frame}
+\end{document}
