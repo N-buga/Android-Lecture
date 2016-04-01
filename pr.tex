@@ -1,4 +1,5 @@
-\documentclass[utf8]{beamer}
+\documentclass[12 pt]{article}
+\usepackage[margin = 1cm]{geometry}
 \usepackage [utf8]{inputenc}
 \usepackage[T2A]{fontenc}
 \usepackage[russian]{babel}
@@ -28,63 +29,80 @@
 \newcommand{\union}{\cup}
 \renewcommand{\div}{\mathop{\raisebox{-2pt}{\vdots}}}
 
-\usetheme{Madrid}
-\useoutertheme{shadow}
-\title{Заголовок}
-\date{Дата или место проведения}
-\author{Автор}
 \begin{document}
-% титульная  страница
-\begin{frame}
-    \titlepage
-\end{frame}
 
-%структурная разметка
 \section{Android Manifest}
-\begin{frame}
-    \frametitle{Android Manifest}
     \begin{itemize}
     	\item Описание проекта, в том числе настройки и конфигурации, например версии.
     	\item Прописаны permission и составляющие проекта.
     \end{itemize}
-\end{frame}
 
 \section{Activity}
-\begin{frame}
-    \frametitle{Activity}
     \begin{itemize}
     	\item Первой в программе вызывается MainActivity(? не помню).
     	\item Цикл жизни.
    		\item Activity надо прописывать в манифесте.
    	\end{itemize}
-\end{frame}
 
 \section{BroadCastReceiver}
-\begin{frame}
-    %заголовок слайда
-    \frametitle{BroadCastReceiver}
+    ??На один и тот же интент, на один и тот же тип интента может быть очень много. И они вызываются последовательно. Если там в какой-нибудь цепочке первый взял на час захватил процессор и работает упорно, все другие будут ждать оповещения об этом.?? 
+    
+    BroadCastReceiver - класс-обработчик intent-ов, то есть класс-обработчик широковещательных сообщений. Он может быть подписан на несколько разных интентов. Если к нему приходит несколько интентов за раз, то они выстраиваются в цепочку и обрабатываются по-одному, поэтому есть определённые ограничения на работу BroadCastReceiver. Если вы попробуете обрабатывать интент больше 5 секунд, обработчик принудительно прикончат, чтобы другие интенты не ждали, пока их обработают. Из-за этой особенности количество действий, которое вы можете сделать с помощью BroadCastReceiver, довольно ограничено. Как правило, всё, что делают в BroadCastReceiver - это посылают другой интент, чтобы запустить Activity, Service(это такой класс, позже мы зачем он нужен и что это такое) или что-нибудь подобное. 
+    
+    Другое назначение BroadCastReceiver это получать системные оповещения. Есть некоторое количество системных оповещений, например о том, что андроид загрузился, или, например, у вас маленький заряд батарейки. Можно подписаться и на них и как-то среагировать. 
+    
+    Как и Activity, BroadCastReceiver должен быть прописан в андроид манифесте(на самом деле его можно зарегистрировать и программно, и иногда так и делают, но мы этого касаться не будем):
+    \begin{lstlisting}
+<receiver android:name=".LocationChangedReceiver" />
+    \end{lstlisting} Теперь, надо как-то сказать приложению, на какие intent мы подписываем наш BroadCastReceiver. Вообще-то говоря, можно это сделать прямо в манифесте. Так обычно и делают, если вы подписываетесь на системные события. А можно сделать это програмно. Мы будем делать это программно:
+    \begin{lstlisting}
+mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+Intent intent = new Intent(this, LocationChangedReceiver.class);
+mLocationChangedIntent =
+PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    \end{lstlisting} Здесь я, когда создаётся Activity, получаю доступ к некоторому LocationManager, который вы уже видели раньше. Затем я создаю Intent ручками, где явно прописываю класс, куда интент должен быть отправлен. Это то, что называют explicit Intent. Вообще, интенты бывают implicit, а бывают explicit. Explicit интенты - это интенты, для которых мы явно прописываем, к какому классу его отправить, implicit - когда мы некоторым образом описываем, куда мы хотим передать сообщение, и потом уже сам андроид разбирается, кого надо запустить по этому описанию. В данном случае, мы при создании интента явно указываем класс приёмника. Соответсвенно, Intent ему и будет доставлен. 
+    
+    На самом деле, здесь отправляется не совсем интент, а то, что называется PendingIntent - наследник класса интент. Главное его отличие от обычного интента в том, что он учитывает права приложения. Как мы уже говорили, вы можете запускать Activity(приложение) из другого приложения, но у этого Activity(приложения) может не быть прав на работу с какими-то там ресурсами. Если эти права нужны, вы можете послать PendingIntent и передать тем самым Activity(приложению), которое вы запускаете, свои права на исполнение. Вам не всегда это нужно, но некоторые API просто по умолчанию используют PendingIntent. Понятно, что в нашем случае BroadCastReceiver это часть нашего же приложения, и у него есть все те же самые права, поэтому PendingIntent как бы и не нужен. Но дело а том, что посылаем мы его с помощью LocationManager, а интерфейс LocationManager требует PendingIntent, поэтому отправляется здесь именно PendingIntent. 
+    
+    Когда приходит интент, который предназначен для данного BroadCastReceiver, вызывается метод onReceive(). Одним из его аргументов является экземпляр класса Context - базовый класс для частей приложения. Он предоставляет доступ ко всем андроидовским ресурсам. Через контест вы можете обращаться к ресурсам системы. К примеру, Activity - наследник класса Context. Поэтому, мы можем вызвать, к примеру, метод getSystemService(), определённый в классе Context - для доступа к какому-то сервису. Activity является наследником класса Context, поэтому этот метод вызывается без всякого префикса. А вот BroadCastReceiver не является наследником класса Context, но доступ ко всяким менеджерам вполне себе может понадобиться, поэтому-то контекст и передаётся методу onReceive(). 
+    
+        В нашем Reciever мы не будем делать ничего такого, мы просто напечатаем в Log некое сообщение(что такое Log мы поподробнее ещё обсудим). 
+        
+        \begin{lstlisting}
+public class LocationChangedReceiver extends BroadcastReceiver {
+
+    private static final String TAG = LocationChangedReceiver.class.getSimpleName();
+
+    public LocationChangedReceiver() { }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
+
+        if (intent.hasExtra(locationKey)) {
+            Location location = (Location) intent.getExtras().get(locationKey);
+
+            Intent startService = new Intent(context, ForecastUpdateService.class);
+            startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
+            context.startService(startService);
+        }
+    }
+}
+    \end{lstlisting}
+    
+    Если обобщить:
     \begin{itemize}
         \item Один из стандартных классов андроид, завязан на несколько(может один) intent. 
-	    \item Получает интент, к которому он привязан и \alert{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
+	    \item Получает интент, к которому он привязан и \textcolor{red}{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
 		\item Если один BroadCastReceiver соотетствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
 		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его прикончат, чтобы другие intent не ждали.
 		\item Так что обычно, его используют только чтобы послать какой-то другой intent или получить системное оповещение.
  		\item Receiver должен быть прописан в Android манифесте.
-    \end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]
-    \frametitle{BroadCastReceiver}
-    \begin{itemize}    
- 	    \item Подписку на intent можно тоже записать в Manifest.
- 	\end{itemize}
-    \begin{lstlisting}
+        \begin{lstlisting}
 <receiver android:name=".LocationChangedReceiver" />
-    \end{lstlisting}		    
-\end{frame}
-\begin{frame}[fragile]
-    \begin{itemize}
-        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё inplicit intent. На самом деле здесь посылается не intent а наследник класса Intent - PendingIntent, в котором учитываются права приложения, из которого нас запустили. 
+        \end{lstlisting}		    
+ 	    \item Подписку на intent можно тоже записать в Manifest.
+        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё implicit intent. На самом деле здесь посылается не intent а наследник класса Intent - PendingIntent, в котором учитываются права приложения, из которого нас запустили. 
         \item Intent - это такой способ общаться между частями приложения. В него можно записать дополнительную информацию.
         \begin{lstlisting}
 startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
@@ -95,29 +113,9 @@ Location location = (Location) intent.getExtras().get(locationKey);
         \end{lstlisting}
         \item Класс Context - это базовый класс для частей приложения. К примеру, Activity - наследник класса Context. Он предоставляет доступ ко всем андроидовским ресурсам. BroadCastReceiver не является наследником класса Context, поэтому он туда передаётся.
     \end{itemize}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{BroadCastReceiver}
-    Пример onReceive():
-    \begin{lstlisting}[basicstyle=\tiny]
-@Override
-public void onReceive(Context context, Intent intent) {
-    final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
 
-    if (intent.hasExtra(locationKey)) {
-        Location location = 
-                    (Location) intent.getExtras().get(locationKey);
-
-        Intent startService = 
-                        new Intent(context, ForecastUpdateService.class);
-        startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
-        context.startService(startService);
-    }
-} 
-    \end{lstlisting}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{Log}
+\section{Log}
+    Мы открываем наш DeviceMonitor. LogCat.     
     \begin{itemize}
         \item Записи в log выводятся на экран Logcat.
         \item Логирование происходит так:
@@ -129,9 +127,8 @@ private static final String TAG =
     ...
 Log.d(TAG, "SMS received");    
     \end{lstlisting}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{Permissions}
+
+\section{Permissions}
     \begin{itemize}
         \item Чтобы работать с сетью надо подключить соотетсвующие permission.
         \begin{lstlisting}
@@ -139,10 +136,7 @@ Log.d(TAG, "SMS received");
 <uses-permission  android:name="android.permission.ACCESS_NETWORK_STATE"/>        
         \end{lstlisting}
     \end{itemize}
-\end{frame}
-\section{Service}    
-\begin{frame}[fragile]
-    \frametitle{Service}
+    \section{Service}    
     \begin{itemize}
         \item Service также надо прописывать в манифесете:
         \begin{lstlisting}
@@ -153,19 +147,12 @@ Log.d(TAG, "SMS received");
         \end{lstlisting}
         \item Для того, чтобы делать продолжительные действия BroadCastReceiver не подходит. Для этого нужно использовать Service.
         \item Ключик exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд.
-    \end{itemize}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{Service}
-    \begin{itemize}
         \item Если к нему обращаются много intent, они также становятся в очередь.
         \item Запускают intent к service через команду startService(...);
         \item При обработке intent запускается метод onHandleIntent(Intent intent);
     \end{itemize}
-\end{frame}
+
 \section{Connection}
-\begin{frame}[fragile]
-    \frametitle{Connection}
     \begin{itemize}
         \item Самый простой способ работать с сетью - это HttpURLConnection.
         \item Возвращается методом .openConnection():
@@ -180,11 +167,8 @@ connection.setRequestMethod("GET");
 connection.connect();
         \end{lstlisting}
     \end{itemize}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{Connection}
     Пример считывания информации:
-    \begin{lstlisting}[basicstyle=\tiny]
+    \begin{lstlisting}
 InputStream inputStream = connection.getInputStream();
 StringBuilder buffer = new StringBuilder();
 if (inputStream == null) {
@@ -201,5 +185,4 @@ if (buffer.length() == 0) {
     return;
 }
     \end{lstlisting}
-\end{frame}
 \end{document}
