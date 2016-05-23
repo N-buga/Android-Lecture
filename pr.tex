@@ -5,9 +5,10 @@
 \usepackage[russian]{babel}
 \usepackage{amsthm, amsmath, amssymb}
 \usepackage{xcolor}
-\usepackage{hyperref}
 \definecolor{mygreen}{rgb}{0,0.6,0}
 \usepackage{listings}
+\usepackage{graphicx}
+\usepackage{hyperref}
 \lstset{
   language=Java,
   tabsize=2,
@@ -34,40 +35,74 @@
 
 \section{Android Manifest}
     \begin{itemize}
-    	\item Описание проекта, в том числе настройки и конфигурации, например версии.
-    	\item Прописаны permission и составляющие проекта.
+    	\item Описание проекта, в том числе настройки и конфигурации(например, версии).
+    	\item Прописаны permission и составляющие проекта, такие как:
+		\begin{enumerate}
+        	\item Activity 
+        	\item BroadCastReceiver 
+        	\item Service
+        \end{enumerate}
     \end{itemize}
 
 \section{Activity}
     \begin{itemize}
-    	\item Первой в программе вызывается MainActivity(? не помню).
-    	\item Цикл жизни.
-   		\item Activity надо прописывать в манифесте.
+    	\item Экран приложения
+        \item Первой в программе вызывается Activity, к которому приходит интент MAIN. Это также прописывается в Android Manifest.
+    	\item Цикл жизни:
    	\end{itemize}
-
-\section{BroadCastReceiver}
-    ??На один и тот же интент, на один и тот же тип интента может быть очень много. И они вызываются последовательно. Если там в какой-нибудь цепочке первый взял на час захватил процессор и работает упорно, все другие будут ждать оповещения об этом.?? 
+	\includegraphics{LifeCycle.png}
     
-    BroadCastReceiver - класс-обработчик intent-ов, то есть класс-обработчик широковещательных сообщений. Он может быть подписан на несколько разных интентов. Если к нему приходит несколько интентов за раз, то они выстраиваются в цепочку и обрабатываются по-одному, поэтому есть определённые ограничения на работу BroadCastReceiver. Если вы попробуете обрабатывать интент больше 5 секунд, обработчик принудительно прикончат, чтобы другие интенты не ждали, пока их обработают. Из-за этой особенности количество действий, которое вы можете сделать с помощью BroadCastReceiver, довольно ограничено. Как правило, всё, что делают в BroadCastReceiver - это посылают другой интент, чтобы запустить Activity, Service(это такой класс, позже мы зачем он нужен и что это такое) или что-нибудь подобное. 
+\section{BroadCastReceiver} 
     
-    Другое назначение BroadCastReceiver это получать системные оповещения. Есть некоторое количество системных оповещений, например о том, что андроид загрузился, или, например, у вас маленький заряд батарейки. Можно подписаться и на них и как-то среагировать. 
+    BroadCastReceiver - класс-обработчик широковещательных сообщений(intent). Может быть подписан на несколько разных интентов. Если к нему приходит несколько интентов за раз, то они выстраиваются в цепочку и обрабатываются по одному, поэтому Android закрывает интент, если BroadCastReceiver пытается его обрабатывать больше положенного. Из-за этого количество действий, которое вы можете сделать с помощью BroadCastReceiver, довольно ограничено(обычное использование - послать другой интент, чтобы запустить Activity, Service или что-нибудь подобное).
     
-    Как и Activity, BroadCastReceiver должен быть прописан в андроид манифесте(на самом деле его можно зарегистрировать и программно, и иногда так и делают, но мы этого касаться не будем):
+    Другое назначение BroadCastReceiver это получать системные оповещения, такие как оповещения о маленьком заряде батарейки или о том, что Android загрузился.
+    
+    BroadCastReceiver региструется в Android Manifest'е так:
     \begin{lstlisting}
 <receiver android:name=".LocationChangedReceiver" />
-    \end{lstlisting} Теперь, надо как-то сказать приложению, на какие intent мы подписываем наш BroadCastReceiver. Вообще-то говоря, можно это сделать прямо в манифесте. Так обычно и делают, если вы подписываетесь на системные события. А можно сделать это програмно. Мы будем делать это программно:
-    \begin{lstlisting}
-mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+    \end{lstlisting} 
+    
+    В принципе, можно регистрировать и программно.
+    
+    Указать, на какие intent'ы подписан BroadCastReceiver, можно двумя способами:
+	\begin{itemize}
+    	\item В Android Manifest (обычно при подписке на системные события)
+		\item Программно:
+        \begin{lstlisting}
+mLocationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
 Intent intent = new Intent(this, LocationChangedReceiver.class);
 mLocationChangedIntent =
 PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-    \end{lstlisting} Здесь я, когда создаётся Activity, получаю доступ к некоторому LocationManager, который вы уже видели раньше. Затем я создаю Intent ручками, где явно прописываю класс, куда интент должен быть отправлен. Это то, что называют explicit Intent. Вообще, интенты бывают implicit, а бывают explicit. Explicit интенты - это интенты, для которых мы явно прописываем, к какому классу его отправить, implicit - когда мы некоторым образом описываем, куда мы хотим передать сообщение, и потом уже сам андроид разбирается, кого надо запустить по этому описанию. В данном случае, мы при создании интента явно указываем класс приёмника. Соответсвенно, Intent ему и будет доставлен. 
+    \end{lstlisting}
+    \end{itemize}
+     Здесь:
+	\begin{itemize}
+    \item Получаем доступ к LocationManager
+	\item Создаем Intent и прописываем класс, куда интент должен быть направлен.
+	\item Рассылаем этот Intent, как широковещательное сообщение.
+    \end{itemize}
+	Класс Intent - это такой способ общаться между частями приложения. В него можно записать дополнительную информацию.
+        \begin{lstlisting}
+startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
+        \end{lstlisting}        
+        
+    Доставать информацию из Intent можно так:
+        \begin{lstlisting}
+Location location = (Location) intent.getExtras().get(locationKey);
+        \end{lstlisting}
+    PendingIntent - наследник класса Intent. Главное его отличие от обычного интента в том, что он учитывает права приложения. Можно запускать Activity(приложение) из другого приложения, но у этого Activity(приложения) может не быть прав на работу с некоторыми ресурсами. Если эти права нужны, вы можете послать PendingIntent и передать тем самым Activity(приложению), которое вы запускаете, свои права на исполнение. Также некоторые API просто по умолчанию используют PendingIntent(например, так делает LocationManager). 
     
-    На самом деле, здесь отправляется не совсем интент, а то, что называется PendingIntent - наследник класса интент. Главное его отличие от обычного интента в том, что он учитывает права приложения. Как мы уже говорили, вы можете запускать Activity(приложение) из другого приложения, но у этого Activity(приложения) может не быть прав на работу с какими-то там ресурсами. Если эти права нужны, вы можете послать PendingIntent и передать тем самым Activity(приложению), которое вы запускаете, свои права на исполнение. Вам не всегда это нужно, но некоторые API просто по умолчанию используют PendingIntent. Понятно, что в нашем случае BroadCastReceiver это часть нашего же приложения, и у него есть все те же самые права, поэтому PendingIntent как бы и не нужен. Но дело а том, что посылаем мы его с помощью LocationManager, а интерфейс LocationManager требует PendingIntent, поэтому отправляется здесь именно PendingIntent. 
+      Интенты бывают:
+      \begin{itemize}
+      		\item explicit - для них явно прописывается, к какому классу его отправить
+            \item implicit - неявно описывается, куда нужно передать сообщение. Дальше в этом разбирается Android.
+      \end{itemize}
+      В коде выше интент - explicit. 
     
-    Когда приходит интент, который предназначен для данного BroadCastReceiver, вызывается метод onReceive(). Одним из его аргументов является экземпляр класса Context - базовый класс для частей приложения. Он предоставляет доступ ко всем андроидовским ресурсам. Через контест вы можете обращаться к ресурсам системы. К примеру, Activity - наследник класса Context. Поэтому, мы можем вызвать, к примеру, метод getSystemService(), определённый в классе Context - для доступа к какому-то сервису. Activity является наследником класса Context, поэтому этот метод вызывается без всякого префикса. А вот BroadCastReceiver не является наследником класса Context, но доступ ко всяким менеджерам вполне себе может понадобиться, поэтому-то контекст и передаётся методу onReceive(). 
+    Когда приходит интент, который предназначен для данного BroadCastReceiver, вызывается метод onReceive(). Одним из его аргументов является экземпляр класса Context - базовый класс для частей приложения. Через него можно обращаться к ресурсам Android. К примеру, Activity - наследник класса Context. Поэтому, мы можем вызвать, к примеру, метод getSystemService(), определённый в классе Context - для доступа к какому-то сервису. А вот BroadCastReceiver не является наследником класса Context, но доступ к различным менеджерам может понадобиться, поэтому контекст и передаётся методу onReceive(). 
     
-        В нашем Reciever мы не будем делать ничего такого, мы просто напечатаем в Log некое сообщение(что такое Log мы поподробнее ещё обсудим). 
+        В нашем Receiver мы просто напечатаем в Log некое сообщение(что такое Log мы поподробнее ещё обсудим). 
         
         \begin{lstlisting}
 public class LocationChangedReceiver extends BroadcastReceiver {
@@ -93,32 +128,23 @@ public class LocationChangedReceiver extends BroadcastReceiver {
     
     Если обобщить:
     \begin{itemize}
-        \item Один из стандартных классов андроид, завязан на несколько(может один) intent. 
-	    \item Получает интент, к которому он привязан и \textcolor{red}{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
-		\item Если один BroadCastReceiver соотетствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
-		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его прикончат, чтобы другие intent не ждали.
+        \item Один из стандартных классов Android, завязан на несколько(может один) intent. 
+	    \item Получает intent, к которому он привязан и \textcolor{red}{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
+		\item Если один BroadCastReceiver соответствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
+		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его выполнение оборвется, чтобы другие intent не ждали.
 		\item Так что обычно, его используют только чтобы послать какой-то другой intent или получить системное оповещение.
- 		\item Receiver должен быть прописан в Android манифесте.
+ 		\item Receiver должен быть прописан в Android Manifest.
         \begin{lstlisting}
 <receiver android:name=".LocationChangedReceiver" />
         \end{lstlisting}		    
  	    \item Подписку на intent можно тоже записать в Manifest.
-        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё implicit intent. На самом деле здесь посылается не intent а наследник класса Intent - PendingIntent, в котором учитываются права приложения, из которого нас запустили. 
-        \item Intent - это такой способ общаться между частями приложения. В него можно записать дополнительную информацию.
-        \begin{lstlisting}
-startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
-        \end{lstlisting}        
-        \item Доставать информацию из Intent можно так:
-        \begin{lstlisting}
-Location location = (Location) intent.getExtras().get(locationKey);
-        \end{lstlisting}
-        \item Класс Context - это базовый класс для частей приложения. К примеру, Activity - наследник класса Context. Он предоставляет доступ ко всем андроидовским ресурсам. BroadCastReceiver не является наследником класса Context, поэтому он туда передаётся.
+        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё implicit intent.  
+        \item Класс Context - это базовый класс для частей приложения. К примеру, Activity - наследник класса Context. Он предоставляет доступ ко всем андроидовским ресурсам и поэтому является параметром метода onReceive у BroadcastReceiver.
     \end{itemize}
 
-\section{Log}
-    Мы открываем наш DeviceMonitor. LogCat.     
+\section{Log}     
     \begin{itemize}
-        \item Записи в log выводятся на экран Logcat.
+        \item Записи в log выводятся на экран Device Monitor.Logcat.
         \item Логирование происходит так:
     \end{itemize}
     \begin{lstlisting}
@@ -129,17 +155,7 @@ private static final String TAG =
 Log.d(TAG, "SMS received");    
     \end{lstlisting}
 
-Усложним наш BroadCastReceiver - мы хотим при обновлении кординат качать прогноз погоды.
-
-\section{Permissions}
-    \begin{itemize}
-        \item Чтобы работать с сетью надо подключить соотетсвующие permission.
-        \begin{lstlisting}
-<uses-permission android:name="android.permission.INTERNET" /> 
-<uses-permission  android:name="android.permission.ACCESS_NETWORK_STATE"/>        
-        \end{lstlisting}
-    \end{itemize}
-\section{Service}    
+    \section{Service}    
     \begin{itemize}
         \item Service также надо прописывать в манифесете:
         \begin{lstlisting}
@@ -149,25 +165,25 @@ Log.d(TAG, "SMS received");
 </service>        
         \end{lstlisting}
         \item Для того, чтобы делать продолжительные действия BroadCastReceiver не подходит. Для этого нужно использовать Service.
-        \item Ключик exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд.
-        \item Работает в фоновом режиме.
-        \item В андроид есть класс Service, от которого можно отнаследоваться и написать свой сервис с блэк-джеком. Но иногда нам нужно от сервиса только обрабатывать приходящие к нему интенты, тогда можно отнаследоваться от IntentService и просто определить метод onHandleIntent(Intent intent), который запускается, когда приходит очередной intent.
-        \item Если к нему обращаются много intent, они просто становятся в очередь.
+        \item Ключ exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд.
+        \item Если к нему обращаются много intent, они также становятся в очередь.
         \item Запускают intent к service через команду startService(...);
-        \item Если нам достаточно обрабатывать один intent за раз, то IntentService; если нам надо обрабатывать много intent одновременно, то реализуем наследника обычного Service.
+        \item При обработке intent запускается метод onHandleIntent(Intent intent);
     \end{itemize}
     
-    Что мы хотим сделать в нашем сервисе? Мы хотим достучаться по сети до сайта и скачать от туда прогноз погоды по текущим координатам. Сначала идёт куча разных параметров, описывающих разметку json-класса(этого мы касаться не будем). Потом, достаём из intent информацию о текущих координатах: 
-    \begin{lstlisting}
-final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
-.....
-Location location = (Location) intent.getExtras().get(locationKey);    
-    \end{lstlisting} .get(...) возвращает Object, поэтому нужно явно кастить к типу, который на нужен. Затем мы долго и страшно с помощью андроидовского Uri собираем Url. А затем работаем непосредственно с сетью. Для этого поймём, как работать с сетью, как подключиться к сайту.
-
+\section{Permissions}
+    \begin{itemize}
+        \item Чтобы работать с сетью надо подключить соотетсвующие permission.
+        \begin{lstlisting}
+<uses-permission android:name="android.permission.INTERNET" /> 
+<uses-permission  android:name="android.permission.ACCESS_NETWORK_STATE"/>        
+        \end{lstlisting}
+    \end{itemize}
+    
 \section{Connection}
     \begin{itemize}
         \item Самый простой способ работать с сетью - это HttpURLConnection.
-        \item Возвращается методом .openConnection(). Осторожно, этот метод возвращает не HttpURLConnection, поэтому предварительно нужно скастить возвращаемое значение к HttpURLConnection:
+        \item Возвращается методом .openConnection():
         \begin{lstlisting}
 URL url = new URL(uri.toString());
 connection = 
@@ -177,10 +193,6 @@ connection =
         \begin{lstlisting}
 connection.setRequestMethod("GET");
 connection.connect();
-        \end{lstlisting} Вместо "GET" может быть другая строчка, в зависимости от того, какой ваш запрос к серверу. В общем случае, описание метода надо смотреть в API того сервиса, которым вы пользуетесь. 
-        \item С данным типом соединения обычно происходит так - создание запроса, подключение, считывание информации из ответа(если нужно). Дальше соединение по большей части бесполезно. В конце нельзя забывать закрыть соединение: 
-        \begin{lstlisting}
-connection.disconnect();        
         \end{lstlisting}
     \end{itemize}
     Пример считывания информации:
@@ -201,7 +213,7 @@ if (buffer.length() == 0) {
     return;
 }
     \end{lstlisting}
-    Обычно ответ формируется либо в формате xml, либо в формате json - это два разных представления данных. В данном случае, мы используем json. Нужно этот формат распарсить и обработать - для этого мы написали функцию parseJsonData(String), но подробно на ней останавливаться не будем.
+        Обычно ответ формируется либо в формате xml, либо в формате json - это два разных представления данных. В данном случае, мы используем json. Нужно этот формат распарсить и обработать - для этого мы написали функцию parseJsonData(String), но подробно на ней останавливаться не будем.
     
     Каждый раз при смене своих координат не очень разумно слать запрос в интернет. Это долго, это не надёжно - интернет или сервис могут не работать. Поэтому стоит задуматься о том, как приложение будет работать в offline-режиме. К примеру, разумный вариант - когда у нас есть доступ к сети, получать погоду и сохранять её в базу данных. А когда сети нет - просто достаём из базы данных самое актуальное значение и показываем. Оно, может быть, и устаревшее, но хоть какое-то. Соответсвенно, следующая наша цель - получить результат и сохранить его в базу данных.
 \section{Data bases}
@@ -435,7 +447,9 @@ getContext().getContentResolver().notifyChange(uri, null);
     
     В общем, ContentProvider - это просто класс, который делает запросы к базе данных, скрывая это за интерфейсом Uri.
     
-    Общая реализация ContentProvider: \href{https://github.com/krinkinmu/forecast/blob/master/app/src/main/java/edu/spbau/android/forecast/WeatherProvider.java}{тык}
+    Общая реализация ContentProvider:  
+   \href{https://github.com/krinkinmu/forecast/blob/master/app/src/main/java/edu/spbau/android/forecast/WeatherProvider.java}{здесь} 
+
 \section{Fragments}
     \begin{itemize}
         \item Весь UI в большинстве приложений распихан по фрагментам.
@@ -522,17 +536,67 @@ public View newView(Context context, Cursor cursor, ViewGroup parent) {
         
         Два внутренних LinearLayout - это аналогичные Group, только элементы ложаться по вертикали(android:orientation="vertical").
         
-        TextView - это просто текст.
-        
-        ImageView - это картиночка.
+        TextView - это просто текст, ImageView - изображение.
         
         Надо заметить, что View - это какая-то рисуемая сущность, а Group - сущность разметки, то есть она размещает по каким-то правилам View или другие Group. Так вот все *Layout - это Group.
         
-        У каждого элемента можно задать id, по которому впоследствии его можно будет найти. Без id элемент найти будет трудно, поэтому если какой-то элемент используется или изменяется в коде, ему обязательно нужно дать своё id.
+        У каждого элемента можно задать id, по которому впоследствии его можно будет найти(например, с помощью метода findViewById(int id) у Context. Без id элемент найти будет трудно, поэтому если какой-то элемент используется или изменяется в коде, ему обязательно нужно дать своё id.
         \item Можно размечать экран и с помощью кода, создавая Layout-ы и View на ходу, но xml в некотором смысле практичней, поскольку мы просто можем заменить один layout другим без изменения кода.
         \item Итак, LayoutInflater получает xml-файл, создаёт дерево объектов и возвращает корневой.
         \item Рядом с любой View мы можем хранить данные, добавляя их с помощью метода .setTag(Data data);
         \item ViewHolder, который мы добавляем в качестве дополнительной информации к View, один раз находит нужные нам View, которые мы будем изменять, и кеширует их, чтобы не приходилось какждый раз бегать по дереву объектов. Это действительно помогает, потому newView не всегда вызывается, когда на экране появляется очередная View. Андроид располагает небольшими ресурсами, поэтому созданные View он может переиспользовать, подав их же ещё раз на вход bindView. Например, так происходит при прокручивании списка.
         \item Следующий метод, про который нам надо поговорить - public void bindView(View view, Context context, Cursor cursor). bindView связывает View с данными, которые мы хотим на ней отобразить. То есть bindView в нашем случае должен заполнить поля у текстовых View, которые отвечают за температуру, чтобы они отображали актуальный данные.
     \end{itemize}
+    
+    К CursorAdapter данные приходят от Cursor, он позволяет обращаться к различным методам Cursor: getDouble(), getPosition().
+	
+	Необходимо связать CursorAdapter с View, для которой он отображает данные(у View метод setAdapter(adapter)).
+    
+    Для получения данных есть отдельный класс LoaderManager - это штука, которая управляет загрузками. Бывают встроенные Loader, если не устраивают, можно реализовать свой. Для этого нужно реализовать интерфейс LoaderCallbacks. Этот интерфейс вызывается, когда Loader загрузит какие-то данные.
+	
+    LoaderManager можно получить с помощью метода getLoaderManager() у Context. Так как возможна потребность в сразу нескольких загрузках, методу getLoader() у LoaderManager нужно передавать id, чтобы он отличал загрузки друг от друга.
+    
+    Для Cursor мы используем CursorLoader, чтобы загружать данные из нашего ContentProvider.
+    
+    А чтобы до нас доходили оповещения Loader о том, что что-то загрузилось, нужно реализовать методы у интерфейса LoaderCallbacks<Cursor>.
+    
+    Один из этих методов - onCreateLoader(int id, Bundle args), который возвращает собственно Loader:
+    
+    \begin{lstlisting}
+@Override
+public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+	String sortOrder = WeatherContract.WeatherEntry.COLUMN_DATE + " ASC";
+	Uri weatherUri = WeatherContract.WeatherEntry.CONTENT_URI;
+
+	return new CursorLoader(getActivity(), weatherUri, FORECAST_COLUMNS, null, null, sortOrder);
+}
+    \end{lstlisting}
+
+Конструктору CursorLoader передается Context, ссылка на данные, указание на то, какие колонки вернуть, а также порядок их сортировки.
+
+На самом деле здесь будет вызываться метод query() с теми же самыми параметрами у ContentProvider.
+
+Еще два важных метода интерфейса LoaderCallbacks: onLoadFinished() и onLoaderReset().
+
+При успешной загрузке:
+
+	\begin{lstlisting}
+@Override
+public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+	mForecastAdapter.swapCursor(data);
+}
+    \end{lstlisting}
+Если какие-то данные подгрузились, Loader об этом узнает, обновляет данные у себя, вызывает onLoadFinished(). Теперь, чтобы адаптер работал с новыми данными, вызывается swapCursor(), который освобождает старые данные.    
+
+При неуспешной загрузке(Loader "погиб"):
+
+	\begin{lstlisting}
+@Override
+public void onLoaderReset(Loader<Cursor> loader) {
+	mForecastAdapter.swapCursor(null);
+}
+    \end{lstlisting}
+
+\section{Директория resources}
+Отвечает за хранение стилей, иконок для различных ориентаций экрана, строковых значений для различных языков.
 \end{document}
