@@ -554,7 +554,7 @@ public View newView(Context context, Cursor cursor, ViewGroup parent) {
     
     Для получения данных есть отдельный класс LoaderManager - это штука, которая управляет загрузками. Бывают встроенные Loader, если не устраивают, можно реализовать свой. Для этого нужно реализовать интерфейс LoaderCallbacks. Этот интерфейс вызывается, когда Loader загрузит какие-то данные.
 	
-    LoaderManager можно получить с помощью метода getLoaderManager() у Context. Так как возможна потребность в сразу нескольких загрузках, методу getLoader() у LoaderManager нужно передавать id, чтобы он отличал загрузки друг от друга.
+    LoaderManager можно получить с помощью метода getLoaderManager() у Context. Так как возможна потребность в сразу нескольких загрузках, методу getLoader() у LoaderManager нужно передавать id, чтобы у нас была возможность отличать загрузки друг от друга.
     
     Для Cursor мы используем CursorLoader, чтобы загружать данные из нашего ContentProvider.
     
@@ -574,7 +574,7 @@ public Loader<Cursor> onCreateLoader(int id, Bundle args) {
 
 Конструктору CursorLoader передается Context, ссылка на данные, указание на то, какие колонки вернуть, а также порядок их сортировки.
 
-На самом деле здесь будет вызываться метод query() с теми же самыми параметрами у ContentProvider.
+Внутри этого конструктора будет вызываться метод query() с теми же самыми параметрами у ContentProvider.
 
 Еще два важных метода интерфейса LoaderCallbacks: onLoadFinished() и onLoaderReset().
 
