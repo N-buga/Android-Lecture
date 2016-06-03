@@ -32,27 +32,236 @@
 \renewcommand{\div}{\mathop{\raisebox{-2pt}{\vdots}}}
 
 \begin{document}
-
+	Давайте напишем приложение, которое при смене местоположения отправлет запрос сайту с погодой, а потом выводит её пользователю. Начнём с той сущности, которая должна быть в любом приложении.
 \section{Android Manifest}
+    Манифест - файлик, лежащий в директории main.
     \begin{itemize}
-    	\item Описание проекта, в том числе настройки и конфигурации(например, версии).
-    	\item Прописаны permission и составляющие проекта, такие как:
+    	\item В Manifest-файле описывается сам проект, в том числе настройки и конфигурации(например, версии проекта).
+    	\item Права, которые должны запросить другие приложения для получения доступа к вашему приложению. 
+    	\item Составляющие проекта, такие как:
 		\begin{enumerate}
         	\item Activity 
         	\item BroadCastReceiver 
         	\item Service
         \end{enumerate}
+        О них мы поговорим дальше.
     \end{itemize}
-
-\section{Activity}
-    \begin{itemize}
-    	\item Экран приложения
-        \item Первой в программе вызывается Activity, к которому приходит интент MAIN. Это также прописывается в Android Manifest.
-    	\item Цикл жизни:
-   	\end{itemize}
-	\includegraphics{LifeCycle.png}
     
+    Пока что наш манифест выглядит так:
+    \begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+    </application>
+
+</manifest>    
+    \end{lstlisting}
+    Внутри тега Application как раз должны быть описаны части приложения, а также устанавливаются настройки приложения. icon, label, theme - описывают значок приложения в меню телефона.
+    
+    В принципе, части приложения можно регистрировать и программно. Но мы этого касаться не будем.
+\section{Activity}
+    Поговорим о Activity. Activity - это окно приложения. Простые приложения состоят из одного Activity. Более сложные приложения могут иметь несколько окон, т.е. они состоят из нескольких Activity, которыми надо уметь управлять и которые могут взаимодействовать между собой.
+
+    Activity, которая запускается первой, считается главной. Из Activity можно запустить другие Activity.
+
+    Activity - это класс и у него есть некоторые методы, которые вызываются во время его жизни. Каждый Activity имеет определённый жизненный цикл:
+
+	\includegraphics{activity_lifecycle.png}
+	
+	Когда запускается Activity вызывается метод .onCreate(), потом .onStart() и потом .onResume(), затем приложение показывается на экране. Соответсвенно, ActivityRunning на картинке означает, что Activity на экране и с ним взаимодействует пользователь. Все статические действия(создание каких-нибудь классов, переменных) обычно делают в .onCreate(). Сбор окна приложения - создание элементов или загрузка Layout - обычно происходит в .onStart().
+	
+	.onPause - значит, что наше окно перекрылось каким-то другим, то есть оно есть, но не активно и пользователь с ним не взаимодействует. После того, как ему снова вернулась активность - снова взывается .onResume, таким образм, .onResume парное к onPause - если что-то надо выключить, когда приложение становится неактивным, то включать его надо в .onResume(). onStope() - парный к onStart() - надо освободить ресурсы. И onDestroy - к onCreate.
+	
+	Теперь, давайте посмотрим, как Activity прописывать в манифесте. У нас будут только одно окно - активити, а именно - главное. Таким образом, манифест сейчас выглядит так:
+	
+	\begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>    
+    </application>
+</manifest>
+    \end{lstlisting}
+    
+    Прописывая Activity, мы также прописывает intent, на который он реагирует. Intent - класс, позволяющий частям приложения общаться между собой(или между приложениями). В нашем случае, когда пользователь нажимает на иконку приложения в меню, приложению посылается Intent MAIN. Поэтому, мы говорим, что наше Activity реагирует на intent Main, а категория intent-а говорит о том, что Activity надо запустить.
+    
+    Разберём по частям наше Activity. 
+    
+    \begin{lstlisting}
+public class MainActivity extends ActionBarActivity {
+
+    private LocationManager mLocationManager;
+    private PendingIntent mLocationChangedIntent;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        ...
+    }
+
+    @Override
+    protected void onResume() {
+        ...
+    }
+
+    @Override
+    protected void onPause() {
+        ...
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        ...
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        ...
+    }
+
+}
+    \end{lstlisting}
+    
+    mLocationManager - поле, которое будет хранить в себе специальный класс, с помощью которого мы будем узнавать о нашем местоположении. 
+    
+    mLocationChangedIntent - это поле класса PendingIntent, котороый делает почти то же, что и Intent, с помощью него мы потом запустим другую часть нашего приложения. Единственное отличие PendingIntent от Intent - это то, что когда PendingIntent запускает какую-нибудь сущность, то она запускается с правами исходного приложения. 
+    
+    Мы наследуемся от ActionBarActivity - которая добавляет полосочку(ActionBar) наверху экрана. Там есть меню, которое раскрывается, а onOptionsItemSelected обрабатывает нажатие на какой-то пункт. onCreateOptionsMenu - вызывается при создании ActionBar. Причём, если он вернёт false, то меню не покажется, а если true - то отрисуется. onOptionsItemSelected должно возвращать true, если у него получилось обработать событие.
+    
+    Реализуем их:
+    
+    \begin{lstlisting}
+@Override
+public boolean onCreateOptionsMenu(Menu menu) {
+    getMenuInflater().inflate(R.menu.menu_main, menu);
+    return true;
+}
+
+@Override
+public boolean onOptionsItemSelected(MenuItem item) {
+    int id = item.getItemId();
+
+    if (id == R.id.action_settings) {
+        return true;
+    }
+
+    return super.onOptionsItemSelected(item);
+}    
+    \end{lstlisting} 
+    
+    Здесь мы в функции onCreateOptionsMenu говорим, что Menu будет рисоваться так, как мы это описали в layout(это xml файлики, описывающие разметку), а в onOptionsItemSelected - в if обрабатывается действие нажатия на конкретный пункт меню. В данном случае, мы ничего не делаем, просто говорим true - обработали. Можно передать обработку нажатия на пункт меню нашему предку, что мы и делаем во всех остальных случаях.
+    
+    Все layouts для Activity лежат в директории main/res/layout. А layout для menu лежит в main/res/menu. Наш файлик-xml назыается menu\_main.xml(собственно, по этому имени и происходит загрузка этого layout как разметки для меню). В файлике:
+    
+    \begin{lstlisting}
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".MainActivity">
+
+    <item
+        android:id="@+id/action_settings"
+        android:title="@string/action_settings"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+
+</menu>    
+    \end{lstlisting}
+    
+    У нас ровно 1 пункт в меню, описывающийся в теге item. Мы настроили для него title(строка, которая отображаетсяв меню), его id - по нему мы находим этот item в onOptionsItemSelected, и другие.
+    
+    В андроиде принято все константы хранить в директории res/values. И использовать переменные, им соответсвующие. Там же(в res/values) есть специальное место для хранения строковых литералов, называется файл strings.xml. Там мы храним строковые литералы. Вот наш файлик:
+    
+    \begin{lstlisting}
+<resources>
+    <string name="app_name">Forecast</string>
+    <string name="action_settings">Settings</string>
+</resources>   
+    \end{lstlisting}
+    
+    Как видно, мы храним строковый литерал "Settings" в переменной action\_settings. И для описания item в нашем layout для меню мы используем переменную, хранящую этот литерал.
+    
+    Идём дальше. Рассмотрим метод onCreate() нашей Activity:
+    
+    \begin{lstlisting}
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+    if (savedInstanceState == null) {
+        getSupportFragmentManager().beginTransaction()
+                .add(R.id.container, new ForecastFragment())
+                .commit();
+    }
+
+    mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+    Intent intent = new Intent(this, LocationChangedReceiver.class);
+    mLocationChangedIntent =
+            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+}   
+    \end{lstlisting}  
+    
+    Класс Bundle создаётся для сохранения важной информации(например, пользовательского UI), в onCreate его можно восстановить. А onSaveInstanceState(Bundle savedInstanceState) можно переопределить и добавит в Bundle ещё что-то своё. Вызывается onSaveInstanceState перед onPause(). Но нам сейчас это не особенно важно - важно, что обязательно надо вызвать тот же метод у супер-класса.
+    
+     setContentView - устанавливает разметку Activity, мы загружаем её из xml файла в директории layout, как говорилось ранее - в layout хранятся разметки для Activity.
+     
+     В mLocationManager мы получаем LocationManager.
+     
+     Далее создаём Intent, на который будет реагировать только класс LocationChangedReceiver, а затем посылаем его. PandingIntent.getBroadcast преобразует Intent в PendingIntent, а затем посылает его всем. Но мы задали, что реагировать на него будет только LocationChangedReceiver, поэтому он придёт только туда. Мы используем метод .getBroadcast, так как получатель - класс BroadCastReceiver(мы рассмотрим его дальше). Есть также методы .getActivity, .getService. 
+     
+     Впоследствии мы будет использовать этот PendingIntent. FLAG\_UPDATE\_CURRENT нужен для того, чтобы мы могли извещать PendingIntent об изменениях в нашем местоположении. Когда будем записывать наше местоположение в PendingIntent, он будет заново рассылаться. Проще говоря, флаг говорит о том, что когда кто-нибудь измененяет данные PendingIntent, он отправляется всем очередной раз.
+     
+     Теперь рассмотрим:
+     
+     \begin{lstlisting}
+@Override
+protected void onResume() {
+    super.onResume();
+
+    final int FIVE_MINUTES = 5 * 60 * 1000;
+
+    mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+            FIVE_MINUTES, 0, mLocationChangedIntent);
+}    
+     \end{lstlisting}
+    
+    Заметим, что во всех методах жизненного цикла необходимо вызвать тот же у предка. Так было с onCreate, onResume, так будет и с остальными. Наш метод onResume довольно прост - он просит LocationManager дёргать наш PendingIntent раз в 5 минут и класть туда информацию о местоположении, первый параметр говорит какое устройство нам передаёт информацию, а третий - минимальная разница в метрах, при которых мы считаем произошёл update. В данном случае - мы будем дёргать Intent всегда.
+    
+    OnPause метод у нас будет тоже довольно простой:
+    \begin{lstlisting}
+@Override
+protected void onPause() {
+    super.onPause();
+    mLocationManager.removeUpdates(mLocationChangedIntent);
+} 
+    \end{lstlisting}
+    
+    Мы просто вызываем тот же метод у предка(как и для любого метода из жизненного цикла), а потом останавливаем оповещение PendingIntent об изменении в текущем положении - при методе onPause, Activity не активно, часто не видно, поэтому нам не надо обновлять информацию.
+    
+    Вот и всё. Мы не будет переопределять onStope и onDestroy, так как в данном случае это не требуется.
 \section{BroadCastReceiver} 
+    Ещё помните, куда мы там посылали наш PendingIntent? В класс BroadCastReceiver! Вот как раз о нём мы сейчас и поговорим.
     
     BroadCastReceiver - класс-обработчик широковещательных сообщений(intent). Может быть подписан на несколько разных интентов. Когда приходит интент, BroadCastReceiver-ы, подписанные на него, выстраиваются в цепочку в соответствии с приоритетами. И если один из BroadcastReceiver-ов обрабатывает сообщение слишком долго, то другие вынуждены ждать. Поэтому Android прерывает исполнение BroadCastReceiver-ов, которые работают больше определённого времени. Из-за этого количество действий, которое вы можете сделать с помощью BroadCastReceiver, довольно ограничено(обычное использование - послать другой интент, чтобы запустить Activity, Service или что-нибудь подобное).
     
@@ -63,8 +272,36 @@
 <receiver android:name=".LocationChangedReceiver" />
     \end{lstlisting} 
     
-    В принципе, можно регистрировать и программно.
+    Таким образом, наш Manifest-файл теперь будет такой:
     
+    \begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".LocationChangedReceiver" />
+    </application>
+
+</manifest>   
+    \end{lstlisting}
+    
+    Как понятно из Manifest-файла, имя нашего BroadCastReceiver будет LocationChangedReceiver.
+        
     Указать, на какие intent'ы подписан BroadCastReceiver, можно двумя способами:
 	\begin{itemize}
     	\item В Android Manifest (обычно при подписке на системные события)
@@ -74,39 +311,11 @@ mLocationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
 Intent intent = new Intent(this, LocationChangedReceiver.class);
 mLocationChangedIntent =
 PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-    \end{lstlisting}
+    \end{lstlisting} - как мы и делали.
     \end{itemize}
-     Здесь:
-	\begin{itemize}
-    \item Получаем доступ к LocationManager
-	\item Создаем Intent и прописываем класс, куда интент должен быть направлен.
-	\item Рассылаем этот Intent, как широковещательное сообщение.
-    \end{itemize}
-	Класс Intent - это такой способ общаться между частями приложения. В него можно записать дополнительную информацию.
-        \begin{lstlisting}
-startService.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
-        \end{lstlisting}        
-        
-    Доставать информацию из Intent можно так:
-        \begin{lstlisting}
-Location location = (Location) intent.getExtras().get(locationKey);
-        \end{lstlisting}
-    PendingIntent - наследник класса Intent. Главное его отличие от обычного интента в том, что он учитывает права приложения. Можно запускать Activity(приложение) из другого приложения, но у этого Activity(приложения) может не быть прав на работу с некоторыми ресурсами. Если эти права нужны, вы можете послать PendingIntent и передать тем самым Activity(приложению), которое вы запускаете, свои права на исполнение. Также некоторые API просто по умолчанию используют PendingIntent(например, так делает LocationManager). 
-    
-      Интенты бывают:
-      \begin{itemize}
-      		\item explicit - для них явно прописывается, к какому классу его отправить
-            \item implicit - неявно описывается, куда нужно передать сообщение. Дальше в этом разбирается Android.
-      \end{itemize}
-      В коде выше интент - explicit. 
-    
-    Когда приходит интент, который предназначен для данного BroadCastReceiver, вызывается метод onReceive(). Одним из его аргументов является экземпляр класса Context - базовый класс для частей приложения. Через него можно обращаться к ресурсам Android. К примеру, Activity - наследник класса Context. Поэтому, мы можем вызвать, например, метод getSystemService(), определённый в классе Context - для доступа к какому-то сервису. А вот BroadCastReceiver не является наследником класса Context, но доступ к различным менеджерам может понадобиться, поэтому контекст и передаётся методу onReceive(). 
-    
-    Наследниками Context также являются разнообразные Service и Activity классы(например, IntentService или AliasActivity).
-    
-        В нашем Receiver мы просто напечатаем в Log некое сообщение(что такое Log мы поподробнее ещё обсудим). 
-        
-        \begin{lstlisting}
+
+    Посмотрим на наш BroadCastReceiver:
+            \begin{lstlisting}
 public class LocationChangedReceiver extends BroadcastReceiver {
 
     private static final String TAG = LocationChangedReceiver.class.getSimpleName();
@@ -115,7 +324,7 @@ public class LocationChangedReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
+        final String locationKey = LocationManager.KEY\_LOCATION\_CHANGED;
 
         if (intent.hasExtra(locationKey)) {
             Location location = (Location) intent.getExtras().get(locationKey);
@@ -127,24 +336,31 @@ public class LocationChangedReceiver extends BroadcastReceiver {
     }
 }
     \end{lstlisting}
-    
-    Если обобщить:
-    \begin{itemize}
-        \item Один из стандартных классов Android, завязан на несколько(может один) intent. 
-	    \item Получает intent, к которому он привязан и \textcolor{red}{быстро} реагирует(с технической точки зрения при получении intent вызывается onReceive(), который должен быстро выполняться).
-		\item Если один BroadCastReceiver соответствует нескольким intent, то они построятся в цепочку и будут выполняться последовательно.
-		\item Поэтому если по какому-то intent метод выполняется слишком долго, то его выполнение оборвется, чтобы другие intent не ждали.
-		\item Так что обычно, его используют только чтобы послать какой-то другой intent или получить системное оповещение.
- 		\item Receiver должен быть прописан в Android Manifest.
-        \begin{lstlisting}
-<receiver android:name=".LocationChangedReceiver" />
-        \end{lstlisting}		    
- 	    \item Подписку на intent можно тоже записать в Manifest.
-        \item А можно это сделать и програмно. Explicit intent - явно указываем класс, к которому intent отправить. Бывает ещё implicit intent.  
-        \item Класс Context - это базовый класс для частей приложения. К примеру, Activity - наследник класса Context. Он предоставляет доступ ко всем андроидовским ресурсам и поэтому является параметром метода onReceive у BroadcastReceiver.
-    \end{itemize}
 
+      Теперь пришло время поговорить об Intent-ах чуть подробнее. Все Intent могут хранить в себе информацию. Добавлять её можно вручную - у Intent есть специальные методы .putExtra(String key, ...) - где второй параметр это то, что мы хотим добавить. Эти методы определены для основных классов Java. Полный список методов можно найти тут: \href{https://developer.android.com/reference/android/content/Intent.html}{тык}
+    
+        И, если кто-то реагирует на Intent с данными и начинает его обрабатывать, то мы можем из Inent вытащить дополнительную информацию. 
+        
+        Когда приходит интент, который предназначен для данного BroadCastReceiver, вызывается метод onReceive(). 
+        
+        Одним из его аргументов является экземпляр класса Context - базовый класс для частей приложения. Через него можно обращаться к ресурсам Android. К примеру, Activity - наследник класса Context. Поэтому, мы можем вызвать, например, метод getSystemService(), определённый в классе Context - для доступа к какому-то сервису. А вот BroadCastReceiver не является наследником класса Context, но доступ к различным менеджерам может понадобиться, поэтому контекст и передаётся методу onReceive(). Наследниками Context также являются разнообразные Service и Activity классы(например, IntentService или AliasActivity).
+        
+        Вторым аргументом является Intent, на который он среагировал. Мы берём этот интент и вытаскиваем из него информацию, которую положил туда LocationManager. Известно, что LocationManager при вызванном нами методе кладёт информацию с ключом LocationManager.KEY\_LOCATION\_CHANGED(это можно найти в документации), поэтому мы и достаём оттуда значение по этому ключу. .getExtras возвращает Bundle - специальный класс для хранение данных вида ключ(строка)-значение(Object). Так что .get() возвращает Object, его надо прикастовать к Location - класс, в котором содержитьс информация о нашем местоположении.
+     
+    Дальше, в силу скромных возможностей BroadCastReceiver мы перенаправляем запрос классу Service. Про этот класс мы поговорим дальше.
+    
+    Чтобы передать управление классу Service, мы также используем Intent. Здесь мы используем обычный Intent, и всё работает. Но почему мы не могли создать обычный интент при обработке LocationManager-ом? Всё дело в том, что LocationManager принимает только PendingIntent, поэтому нам пришлось идти длинным путём.
+    
+    Итак, мы создали интент ручками и указали класс, который на него подписан - ForecastUpdateService. Дальше положили полученную информацию уже в новый интент и отправили сервису. Это можно сделать с помощью команды startService. А если бы мы отправляли интент Activity, то метод назывался бы startActivity - осторожно!
+            
 \section{Log}     
+    Наверняка вы заметили странное статическое поле в BroadCastReceiver: 
+    \begin{lstlisting}
+private static final String TAG = LocationChangedReceiver.class.getSimpleName();
+    \end{lstlisting}
+    
+    Оно используется для логирования.
+    
     \begin{itemize}
         \item Записи в log выводятся на экран Device Monitor.Logcat.
         \item Логирование происходит так:
@@ -157,7 +373,11 @@ private static final String TAG =
 Log.d(TAG, "SMS received");    
     \end{lstlisting}
 
+    В нашем случае мы ничего не логируем, но в целом логирование - хороший тон.
+    
     \section{Service}    
+    Теперь, наконец, поговорим про Service.
+    
     \begin{itemize}
         \item Service также надо прописывать в манифесете:
         \begin{lstlisting}
@@ -166,12 +386,183 @@ Log.d(TAG, "SMS received");
     android:exported="false" >
 </service>        
         \end{lstlisting}
-        \item Для того, чтобы делать продолжительные действия BroadCastReceiver не подходит. Для этого нужно использовать Service.
-        \item Ключ exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд.
-        \item Если к нему обращаются много intent, они также становятся в очередь.
-        \item Запускают intent к service через команду startService(...);
+        
+        Таким образом, в нашем манифест-файле теперь появилась новая сущность:
+        \begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".LocationChangedReceiver" />
+
+        <service
+            android:name=".ForecastUpdateService"
+            android:exported="false" />
+    </application>
+
+</manifest>        
+        \end{lstlisting}
+        Ключ exported задаёт, позволено ли другим приложениям запускать наш сервис, Activity и тд. В нашем случае - не позволено.
+        \item Если intent занят какой-то другой сущностью, то Service также становится в очередь.
         \item При обработке intent запускается метод onHandleIntent(Intent intent);
     \end{itemize}
+    
+    Давайте разберём, что мы здесь делаем:
+    \begin{lstlisting}
+public class ForecastUpdateService extends IntentService {
+
+    private final static String TAG = ForecastUpdateService.class.getSimpleName();
+
+    public ForecastUpdateService() {
+        super(TAG);
+    }
+
+    private void parseJsonData(String json) {
+        final String JSON_LIST = "list";
+        final String JSON_SPEED = "speed";
+        final String JSON_DEGREE = "deg";
+        final String JSON_TEMPERATURE = "temp";
+        final String JSON_DAY_TEMPERATURE = "day";
+        final String JSON_NIGHT_TEMPERATURE = "night";
+        final String JSON_WEATHER = "weather";
+        final String JSON_WEATHER_ID = "id";
+
+        try {
+            JSONObject forecastJson = new JSONObject(json);
+            JSONArray weatherArray = forecastJson.getJSONArray(JSON_LIST);
+
+            ArrayList<ContentValues> forecast = new ArrayList<>(weatherArray.length());
+
+            Time dayTime = new Time();
+            dayTime.setToNow();
+            int julianStartDay = Time.getJulianDay(System.currentTimeMillis(), dayTime.gmtoff);
+            dayTime = new Time();
+
+            for(int i = 0; i < weatherArray.length(); i++) {
+                JSONObject dayForecast = weatherArray.getJSONObject(i);
+
+                long dateTime = dayTime.setJulianDay(julianStartDay + i);
+
+                double speed = dayForecast.getDouble(JSON_SPEED);
+                double degree = dayForecast.getDouble(JSON_DEGREE);
+
+                JSONObject temperatureObject = dayForecast.getJSONObject(JSON_TEMPERATURE);
+                double day = temperatureObject.getDouble(JSON_DAY_TEMPERATURE);
+                double night = temperatureObject.getDouble(JSON_NIGHT_TEMPERATURE);
+
+                JSONArray weatherObjects = dayForecast.getJSONArray(JSON_WEATHER);
+                JSONObject weatherObject = weatherObjects.getJSONObject(0);
+                int weather = weatherObject.getInt(JSON_WEATHER_ID);
+
+                ContentValues weatherValues = new ContentValues();
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DATE, dateTime);
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DEGREES, degree);
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WIND_SPEED, speed);
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMN_NIGHT_TEMP, night);
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DAY_TEMP, day);
+                weatherValues.put(WeatherContract.WeatherEntry.COLUMMN_WEATHER_ID, weather);
+                forecast.add(weatherValues);
+            }
+
+            if (forecast.size() > 0) {
+                ContentValues values[] = new ContentValues[forecast.size()];
+                forecast.toArray(values);
+                getContentResolver().bulkInsert(WeatherContract.WeatherEntry.CONTENT_URI, values);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error while parsing JSON", e);
+        }
+    }
+
+    @Override
+    protected void onHandleIntent(Intent intent) {
+        final String locationKey = LocationManager.KEY_LOCATION_CHANGED;
+
+        final String FORECAST_BASE_URL =
+                "http://api.openweathermap.org/data/2.5/forecast/daily?";
+        final String LATITUDE_PARAM = "lat";
+        final String LONGITUDE_PARAM = "lon";
+        final String MODE_PARAM = "mode";
+        final String JSON = "json";
+        final String UNITS_PARAM = "units";
+        final String METRIC = "metric";
+
+        if (!intent.hasExtra(locationKey)) {
+            Log.w(TAG, "Received intent without location");
+            return;
+        }
+
+        Location location = (Location) intent.getExtras().get(locationKey);
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+
+        try {
+            Uri uri = Uri.parse(FORECAST_BASE_URL).buildUpon()
+                    .appendQueryParameter(LATITUDE_PARAM, Double.toString(location.getLatitude()))
+                    .appendQueryParameter(LONGITUDE_PARAM, Double.toString(location.getLongitude()))
+                    .appendQueryParameter(MODE_PARAM, JSON)
+                    .appendQueryParameter(UNITS_PARAM, METRIC).build();
+            URL url = new URL(uri.toString());
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
+
+            InputStream inputStream = connection.getInputStream();
+            StringBuilder buffer = new StringBuilder();
+            if (inputStream == null) {
+                return;
+            }
+            reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                buffer.append(line);
+                buffer.append("\n");
+            }
+
+            if (buffer.length() == 0) {
+                return;
+            }
+
+            parseJsonData(buffer.toString());
+        } catch (IOException e) {
+            Log.e(TAG, "Error", e);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    Log.e(TAG, "Error while closing stream", e);
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+}
+    \end{lstlisting}
+    
+    Выглядит страшно, но скоро всё будет понятно. Начнём сначала, вот Intent начинает обрабатывать функция onHandleIntent. Первым делом мы задаём некоторые значения, которые впоследствии могут нам понадобиться - первое для извлечение локации из Intent. Остальные - специальные параметры для декодирования и кодирования определённых форматов.
+    
+    Дальше мы проверяем, что пришёдший интент действительно содержит нужную информацию(функция hasExtra(String key)), и если нет - используем логирование, чтобы сообщить об ошибке и выходим. Мы уже умные, мы знаем, что это такое. 
+    
+    Если информация в Intent действительно содержиться, мы извлекаем информацию в location. Дальше нам нужно подключиться по интернету. Но для этого нужны некоторые права.
     
 \section{Permissions}
     \begin{itemize}
@@ -180,24 +571,65 @@ Log.d(TAG, "SMS received");
 <uses-permission android:name="android.permission.INTERNET" /> 
 <uses-permission  android:name="android.permission.ACCESS_NETWORK_STATE"/>        
         \end{lstlisting}
+        
+        Таким образом, манифест-файл выглядит сейчас так:
+        \begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".LocationChangedReceiver" />
+
+        <service
+            android:name=".ForecastUpdateService"
+            android:exported="false" />
+    </application>
+</manifest>        
+        \end{lstlisting}
+        \item Для получени данных относительно точной локации, также нужно разрешение - оно первое в списке.
+        \item Второе позволяет открывать сетевые сокеты.
+        \item А третье позволяет приложениям получать доступ к информации о сетях.
     \end{itemize}
     
 \section{Connection}
+
+    Продолжим разбираться с нашим Service. Мы остановились на том, что мы хотим выйти в сеть.
     \begin{itemize}
-        \item Самый простой способ работать с сетью - это HttpURLConnection.
-        \item Возвращается методом .openConnection():
+        \item Самый простой способ работать с сетью - это HttpURLConnection. Сначала мы долго-долго строим URL-адрес, в котором находится наш запрос - мы достаём из Location широту и долготу, а потом получаем HttpURLConnection по этому URL. Возвращается методом .openConnection():
         \begin{lstlisting}
 URL url = new URL(uri.toString());
 connection = 
         (HttpURLConnection) url.openConnection();
         \end{lstlisting}
+        Здесь нужен каст, так как .openConnection на самом деле возвращает URLConnection, но по факту это - HttpURLConnection, так как наш сайт работает по протоколу http.
         \item Протокол http может обрабатывать различные запросы. Например, запрос на получение информации. Если мы хотим получить информацию - пишем следующее:
         \begin{lstlisting}
 connection.setRequestMethod("GET");
-connection.connect();
         \end{lstlisting}
+        А мы действительно хотим получить информацию по запросу, который мы отправили вместе c URL.
+        Затем мы собственно, создаём соединение - функцией connection.connect();
     \end{itemize}
-    Пример считывания информации:
+    Несложно, да? Мы создали соединение на основе connection. Осталось оттуда прочитать данные.
+    Считываем информацию мы так:
     \begin{lstlisting}
 InputStream inputStream = connection.getInputStream();
 StringBuilder buffer = new StringBuilder();
@@ -215,10 +647,20 @@ if (buffer.length() == 0) {
     return;
 }
     \end{lstlisting}
-        Обычно ответ формируется либо в формате xml, либо в формате json - это два разных представления данных. В данном случае, мы используем json. Нужно этот формат распарсить и обработать - для этого мы написали функцию parseJsonData(String), но подробно на ней останавливаться не будем.
+    
+    А теперь пояснение. Мы берём InputStream, связанный с нашим соединением. Прочитаем всё в StringBuilder - мы будем читать строчками, поэтому нам надо сконкатенировать. StringBuilder здесь лучший выбор. Чтобы удобнее было работать с потоком чтения, мы оборачиваем его в BufferedReader - и читаем построчно, пока не закончаться строчки. Если ничего не пришло, то длина buffer окажется равной нулю - и мы выходим.
+    
+    Отлично, теперь у нас есть StringBuilder из строчек результата. Ответ надо распарсить.
+    
+    Обычно ответ формируется либо в формате xml, либо в формате json - это два разных представления данных. В данном случае, мы используем json. Нужно этот формат распарсить и обработать - для этого мы написали функцию parseJsonData(String), но подробно на ней останавливаться не будем. Для этого пришлось бы углубиться ещё и в структуру формата json и API сайта. После этого, в onHandleIntent мы обрабатываем все ошибки, а в блоке finally закрывает открытые ресурсы.
+    
+    Что важно не пропустить в parseJsonData - последний if - если данные о погоде есть, то мы их куда-то вставляем. В будущем мы поймём, что куда-то - это базы данных.
+
+\section{Data bases}
     
     Каждый раз при смене своих координат не очень разумно слать запрос в интернет. Это долго, это не надёжно - интернет или сервис могут не работать. Поэтому стоит задуматься о том, как приложение будет работать в offline-режиме. К примеру, разумный вариант - когда у нас есть доступ к сети, получать погоду и сохранять её в базу данных. А когда сети нет - просто достаём из базы данных самое актуальное значение и показываем. Оно, может быть, и устаревшее, но хоть какое-то. Соответсвенно, следующая наша цель - получить результат и сохранить его в базу данных.
-\section{Data bases}
+    
+    В нашем проекте есть такой класс WeatherProvider - наследник класса ContentProvider.
 	\begin{itemize}
 		\item ContentProvider - это такой класс-обёртка над базой данных.
 		\item Его также надо прописывать в манифесте:
@@ -227,22 +669,60 @@ if (buffer.length() == 0) {
 	android:authorities="edu.spbau.android.forecast"
     android:name=".WeatherProvider" />		
 		\end{lstlisting}
+		android:authorities - обязательно должен быть и должен указывать путь к провайдеру(проще - пакет провайдера).
+		
+		Таким образом, манифест получается такой:
+		\begin{lstlisting}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.spbau.android.forecast" >
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".LocationChangedReceiver" />
+
+        <service
+            android:name=".ForecastUpdateService"
+            android:exported="false" />
+        
+        <provider
+            android:authorities="edu.spbau.android.forecast"
+            android:name=".WeatherProvider" />
+    </application>
+
+</manifest>		
+		\end{lstlisting}
+		
+		Это - окончательный вариант и больше он меняться не будет.
 	\end{itemize}    
+	
+\section{Contract}
+	
 	Перд тем, как подробней говорить о ContentProvider, познакомимся с ещё одним классом Contract, реализация которого является правилом хорошего тона. Там обычно описывается структура базы данных. То есть, он необязателен, чтобы работать с базами данных, но лучше его реализовывать.
+	
 	Соответсвенно:
 	\begin{itemize}
 	    \item Его не надо прописывать в манифесте, так как это вспомогательный класс.
 	    \item Там как константы хранятся названия таблиц, названия колонок, строк и другая подобная информация.
 	    \item Для каждой таблички внутри контракта заводится класс-наследник интерфейса BaseColumns. И в нём уже описывается вся информация о конкретной табличке. 
 	    \item В нашей базе данных будет только одна табличка, в которой будет храниться прогноз погоды по времени.
-	    \item В этом классе необходимо определить: 
-	    \begin{itemize}
-	        \item public static final Uri CONTENT\_URI -- Uri, по которому мы будем обращаться к ContentProvider, так как доступ к ContentProvider осуществляется только через Uri. 
-	        \item public static final String CONTENT\_TYPE -- тип набора записей в ContentProvider.
-	        \item public static final String CONTENT\_ITEM\_TYPE -- тип одной записи в ContentProvider
-	    \end{itemize}
-	    Последние два вегда выглядят одинаково, но их всё равно приходится прописывать.
-	    \item Также, в классе прописываются разные служебные методы. У нас реализованы преобразование даты в Uri, и наоборот. Чтобы мы смогли потом обратиться к какой-то записи, соотетсвующей определённой дате.
 	\end{itemize}
 	
 	Наш Contract выглядит так:
@@ -293,6 +773,29 @@ public class WeatherContract {
 }	
 	\end{lstlisting}
 	
+	В классе WeatherContract:
+	\begin{itemize}
+	    \item CONTENT\_AUTHORITY - путь к ContentProvider, иначе - пакет ContentProvider(в нашем случае - WeatherProvider)
+	    \item BASE\_CONTENT\_URI - URI по пути к ContentProvider
+	    \item PATH\_WEATHER - локальный путь к табличке weather. Чаще всего, просто название табличик. А так из локального пути к табличке и URI ContentProvider можно построить полный путь до таблички: 
+	    \begin{lstlisting}
+	    public static final Uri CONTENT_URI =
+                BASE_CONTENT_URI.buildUpon().appendPath(PATH_WEATHER).build();
+        \end{lstlisting}
+	    \item public static long normalizeDate(long gmt) - ????
+	    \item Подкласс, соотетсвующий нашей единственной табличке.
+	    В нём:
+	    \begin{itemize}
+	        \item public static final Uri CONTENT\_URI -- Uri, по которому мы будем обращаться к конкретной табличке ContentProvider, так как доступ к ContentProvider осуществляется только через Uri. В данном случае - табличка, называющаяся weather.
+	        \item public static final String CONTENT\_TYPE -- тип набора записей в ContentProvider.
+	        \item public static final String CONTENT\_ITEM\_TYPE -- тип одной записи в ContentProvider
+	        \item А затем разные атрибуты, описывающие табличку - её название, и колонки, которые в ней есть.
+	        \item Также, в классе прописываются разные служебные методы. У нас реализованы преобразование даты в Uri, и наоборот. Чтобы мы смогли потом обратиться к какой-то записи, соотетсвующей определённой дате.
+	    \end{itemize}
+	    Выражения для CONTENT\_TYPE и CONTENT\_ITEM\_TYPE вегда одни и те же, но их всё равно приходится прописывать.
+	\end{itemize}
+
+\section{SQLiteOpenHelper}	
 	Следующий класс, про который мы поговорим перед ContentProvider, это абстрактный класс \\ SQLiteOpenHelper.
 	\begin{itemize}
 	    \item Это, собственно, тот класс, который работает с базой данных. Именно через этот класс, мы будем делать запросы к бд.
