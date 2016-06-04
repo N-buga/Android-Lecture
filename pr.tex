@@ -782,7 +782,7 @@ public class WeatherContract {
 	    public static final Uri CONTENT_URI =
                 BASE_CONTENT_URI.buildUpon().appendPath(PATH_WEATHER).build();
         \end{lstlisting}
-	    \item public static long normalizeDate(long gmt) - ????
+	    \item public static long normalizeDate(long gmt) - как понятно из названия, нормализует время.
 	    \item Подкласс, соотетсвующий нашей единственной табличке.
 	    В нём:
 	    \begin{itemize}
@@ -796,20 +796,15 @@ public class WeatherContract {
 	\end{itemize}
 
 \section{SQLiteOpenHelper}	
+
 	Следующий класс, про который мы поговорим перед ContentProvider, это абстрактный класс \\ SQLiteOpenHelper.
 	\begin{itemize}
 	    \item Это, собственно, тот класс, который работает с базой данных. Именно через этот класс, мы будем делать запросы к бд.
-	    \item Как нетрудно догадаться по названию, в Android используется SQLite, который нам подаётся обёрнутым в интерфейс.
-	    \item Также, именно через него мы создаём базу данных в первый раз. При первом запуске у \\ SQLiteOpenHelper вызывается метод public void onCreate(SQLiteDatabase db), в котором мы создаём базу данных с помощью запросов к SQLiteDatabase.
-	    \item В классе нужно переопределить также метод public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion), который позволяет обновить базу данных в процессе работы приложения. Как-то изменять структуру или добавлять новый таблички, к примеру. 
+	    \item Как нетрудно догадаться по названию, в Android используется SQLite. А этот класс отвечает за создание базы данных, если её нет, открытие, если есть и обновлении, когда нужно. Соотетсвенно, он имеет три метода: onCreate, onOpen, onUpgrade. Конструктор SQLiteOpenHelper создаёт объект, помогающий в управлении базой данных.
+	    \item Нашего класса наследника мы назовём WeatherDBHelper. При первом запуске у \\ SQLiteOpenHelper вызывается метод public void onCreate(SQLiteDatabase db). С помощью класса SQLiteDatabase можно создать таблички базы данных со своей структурой. Надо вызвать метод .execute(String) у db, где в качестве строчки используется обычный запрос на языке SQLite.
 	    
-	    Внутри каждого запроса к базе данных есть также поле версии, в которой описано, какой версии должна соответвовать база данных. И, если текущая версия базы данных не соответсвует той, которую ожидает приложение, будет вызван метод onUpgrade(oldVersion - текущая версия бд, newVersion - версия, требуемая приложением).
-	    
-	    Самый простой способ изменить бд - это удалить всё и создать заново, что мы, собственно, и делаем. Надо учитывать при этом, что мы при таком подходе теряем все данные. Но в нашем случае, нам это не важно.
-	\end{itemize}
-	
-	Мы наследуемся от SQLiteOpenHelper следующим образом:
-	\begin{lstlisting}
+	    Рассмотрим наш код. Итак, мы переопределим два метода - onCreate и onUpgrade. Третий мы использовать не будем:
+	    \begin{lstlisting}
 public class WeatherDBHelper extends SQLiteOpenHelper {
 
     private static final int DATABASE_VERSION = 1;
@@ -820,6 +815,23 @@ public class WeatherDBHelper extends SQLiteOpenHelper {
     }
 
     @Override
+    public void onCreate(SQLiteDatabase db) {
+        ...
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        ...
+    }
+
+}	    
+	    \end{lstlisting}
+	    	    
+        Наш класс будет хранить версию и название базы данных, первое представленяет из себя число, а второе - строку. Мы назовём нашу базу данных "weather.db". В конструктуре класса обязательно надо вызвать конструктор родительского(ну или написать свой, который создаёт этот дополнительный объект).
+        
+        Теперь опишем класс onCreate:
+        \begin{lstlisting}
+@Override
     public void onCreate(SQLiteDatabase db) {
         String SQL_CREATE_WEATHER_TABLE = "CREATE TABLE " + WeatherEntry.TABLE_NAME + " (" +
             WeatherEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -832,21 +844,92 @@ public class WeatherDBHelper extends SQLiteOpenHelper {
                 "UNIQUE (" + WeatherEntry.COLUMN_DATE + ") ON CONFLICT REPLACE);";
 
         db.execSQL(SQL_CREATE_WEATHER_TABLE);
+    }        
+        \end{lstlisting}	    	    
+	    	    
+        Как мы уже говорили, в методе onCreate мы задаём струкутру базы данных.	Здесь ничего - просто создание SQL-запроса, если вы знакомы с базами данных, то для вас здесь не будет ничего сложного. Надо заметить, что название колонок берётся из класа WeatherEntry - это вложенный класс в WeatherContract, который отвечает за нашу единственную табличку. В остальном мы просто задаём данные какого вида будут хранится в колонках.   	    
+	    	    
+	    Внутри каждого запроса к базе данных есть также поле версии, в которой описано, какой версии должна соответвовать база данных. И, если текущая версия базы данных не соответсвует той, которую ожидает приложение, будет вызван метод onUpgrade:
+	    \begin{lstlisting}
+@Override
+public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    db.execSQL("DROP TABLE IF EXISTS " + WeatherEntry.TABLE_NAME);
+    onCreate(db);
+}	    
+	    \end{lstlisting}
+	    
+	    oldVersion - текущая версия бд, newVersion - версия, требуемая приложением. Итак, если версии не совпадают, а значит, надо нашу базу данных обновить. Самый простой способ это сделать - удалить всё и создать заново, что мы, собственно, и делаем - удаляем табличку, если она существует, а затем вызываем onCreate. 
+	    
+	    Надо учитывать, что при таком подходе все данные теряются, поэтому если нам хочется сохранить какие-то данные, это нужно как-то обработать, но в нашем случае, нам это не важно.
+	\end{itemize}
+	
+\section{И снова про ContentProvider}	
+	
+	Теперь, наконец, разберём поподробнее класс ContentProvider:
+	Мы создадим класс-наследник от ContentProvider - WeatherProvider. Он будет выглядеть так:
+	    \begin{lstlisting}
+public class WeatherProvider extends ContentProvider {
+
+    private static final int WEATHER = 100;
+    private static final int WEATHER_WITH_DATE = 101;
+
+    private static final UriMatcher sUriMatcher = buildUriMatcher();
+
+    private static UriMatcher buildUriMatcher() {
+    }
+
+    private static void normalizeDate(ContentValues values) {
+    }
+
+    private WeatherDBHelper mDbHelper;
+
+    private Cursor getWeather(String[] projection, String selection, String[] selectionArgs,
+                              String sortOrder)
+    {
+    }
+
+    private Cursor getWetherByDate(Uri uri, String[] projection, String sortOrder) {
     }
 
     @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + WeatherEntry.TABLE_NAME);
-        onCreate(db);
+    public boolean onCreate() {
     }
 
-}
-	\end{lstlisting}
-	
-	Теперь, наконец, разберём поподробнее класс ContentProvider:
-	\begin{itemize}
-	    \item Мы создадим класс-наследник от ContentProvider - WeatherProvider. У ContentProvider можно переопределить только метод onCreate - так как именно там обычно происходит подключение к базе данных, но и этот метод переопределять необязательно. 
-	    \item В нашем случае, подключение к бд - это просто создание WeatherDBHelper.
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+    }
+
+    @Override
+    public String getType(Uri uri) {
+    }
+
+    @Override
+    public Uri insert(Uri uri, ContentValues values) {
+    }
+
+    @Override
+    public int delete(Uri uri, String selection, String[] selectionArgs) {
+    }
+
+    @Override
+    public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+    }
+
+    @Override
+    public int bulkInsert(Uri uri, @NonNull ContentValues[] values) {
+    }
+
+}	   
+	    \end{lstlisting}
+	    
+        Поля WEATHER и WEATHER\_WITH\_DATE - это специальные коды, которые описывают какой запрос к нам пришёл. В методе buildUriMatcher - создаётся специальный UriMatcher, который запросу к какой-то конкретной строчке ставит в соответсвие код WEATHER\_WITH\_DATE, а запросам к группе строчек - WEATHER. Этот UriMatcher сохраняется в поле sUriMatcher. Подробнее про этот метод мы поговорим дальше.	    
+	    
+	    У ContentProvider можно переопределить только метод onCreate - так как именно там обычно происходит подключение к базе данных, но и этот метод переопределять необязательно. Однако нам этого недостаточно.
+	    
+	     Рассмотрим методы нашего класса поближе. Во-первых, метод onCreate. Этот метод вызовется автоматически - до того, как мы обратимся к классу WeatherProvider в первый раз.
+
+	    В нашем случае, подключение к бд - это просто создание WeatherDBHelper. Мы сохраняем WeatherDBHelper в отдельное поле, чтобы можно было впоследствии управлять версиями(mDbHelper - поле, которое определено через три метода).
+	    
 	    \begin{lstlisting}
 @Override
 public boolean onCreate() {
@@ -854,15 +937,180 @@ public boolean onCreate() {
     return true;
 }	    
 	    \end{lstlisting}
-	    \item public Cursor query(...) - вызывается при запросе к ContentProvider(читай, к бд). Здесь обрабатываются запросы типа SELECT.
-	    \item public Uri insert(...) - вызывается, если мы хотим вставить что-то в ContentProvider(читай, нашу бд). Здесь обрабатываются запросы типа INSERT.
-	    \item public int delete(...) - вызывается, если мы хотим удалить что-то из ContentProvider(читай, из нашей бд). Здесь обрабатываются запросы типа DELETE.
-	    \item public int update(...) - вызывается, если мы хотим обновить какую-то запись в ContentProvider(читай, в нашей бд). Здесь обрабатываются запросы типа UPDATE.
-	    \item public int bulkInsert(...) - метод, позволяющий вставлять сразу пачку значений(запросы типа INSERT).
-	    \item public String getType(Uri uri). Метод берёт Uri, на который может отвечать наш ContentProvider, и возвращает по нему тип записи для этого Uri. В нашем случае, для возвращаемого значения может быть только два варианта. Либо, это специфичный Uri, который указывает на одну запись, либо он указывает сразу на группу записей. Тип Uri определяется с помощью утилитарного класса UriMatcher, который проверяет Uri относительно некоторых шаблонов для Uri и возвращает соответсвующий код. 
 	    
-	    В нашем случае, метод работает следующим образом - если в качестве Uri передаётся запись, в конце которой имя нашей таблички, то мы возвращаем тип множественный(то есть это запрос ко всем элементам таблички), а если через слеш записано какое-то число, то тип Uri - тип одной записи(число мы потом преобразуем в дату и вернём значение, соответсвующее этой конкретной дате).
+	    Теперь пробежимся по остальным методам:
+	    \begin{itemize}	
+	    \item buildUriMatcher(...) Мы про него кое-что уже знаем - к примеру зачем он и что он идеалогически делает. Код его такой:
 	    \begin{lstlisting}
+private static UriMatcher buildUriMatcher() {
+    UriMatcher matcher = new UriMatcher(UriMatcher.NO_MATCH);
+    String authority = WeatherContract.CONTENT_AUTHORITY;
+    matcher.addURI(authority, WeatherContract.PATH_WEATHER, WEATHER);
+    matcher.addURI(authority, WeatherContract.PATH_WEATHER + "/#", WEATHER_WITH_DATE);
+    return matcher;
+}	    
+	    \end{lstlisting}
+	     Как мы видим, здесь мы сначала создаём UriMatcher, а затем добавляем два соответсвия по правилу, про котороу мы уже говорили и возвращаем соответсвующий matcher, который сохраняется в поле sUriMatcher.
+	    \item public Cursor query(...) - вызывается при запросе к ContentProvider(читай, к бд). Здесь обрабатываются запросы типа SELECT.
+	    Вяглядит он так:
+	    \begin{lstlisting}
+@Override
+public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+    Cursor cursor;
+    switch (sUriMatcher.match(uri)) {
+        case WEATHER:
+            cursor = getWeather(projection, selection, selectionArgs, sortOrder);
+            break;
+        case WEATHER_WITH_DATE:
+            cursor = getWetherByDate(uri, projection, sortOrder);
+            break;
+        default:
+            throw new UnsupportedOperationException("Unknown uri: " + uri);
+    }
+    cursor.setNotificationUri(getContext().getContentResolver(), uri);
+    return cursor;
+}	    
+	    \end{lstlisting}
+	    Что мы тут делаем? Во-первых, мы проверяем тип запроса с помощью sUriMatcher. Uri нам передают как параметр. Если тип Uri - запрос к конкретной записи, то мы вызываем getWeatherByDate, если же запрос ко всей табличке, то вызывается метод getWeather. Оба метода возвращают Cursor - некий указатель на выбранные значения. 
+	    
+	    Метод getWeather принимает три параметра - колонки, которые надо выбрать(projection - массив названия колонок), условие выборки(selection, например, нам надо только записи, где значение даты в каком-то интервале), конкретные значения для условия(selectionArgs, задаются значения интервала) и если выбранные строчки надо будет как-то отсортировать, то мы на этот случай передаём ещё sortOrder - порядок сортировки. Все эти параметры задаются строчками или массивыми строчек - которые потом можно будет составить в запрос SQL.
+	    
+	    Метод getWeatherByDate принимает uri - путь к соотетсвующей строчке, колонки, которые надо будет выбрать оттуда(projection) и sortOrder.
+	    
+	    Соответсвенно, параметры, которые принимает метод query - это все параметры, которые могут понадобиться методам getWeather или getWeatherByDate. 
+	    
+	    Мы возвращаем этот курсор, который получили.
+	    
+	    cursor.setNotificationUri - регистрирует наш Uri, чтобы потом тем, кто следит за этим Uri при изменениях в Uri пришло оповещение.
+	    
+	    \item public Uri insert(...) - вызывается, если мы хотим вставить что-то в ContentProvider(читай, нашу бд). Здесь обрабатываются запросы типа INSERT. Для таких запросов код у нас получится следующий:
+	    
+	    \begin{lstlisting}
+@Override
+public Uri insert(Uri uri, ContentValues values) {
+    switch (sUriMatcher.match(uri)) {
+        case WEATHER:
+            normalizeDate(values);
+            long date = values.getAsLong(WeatherContract.WeatherEntry.COLUMN_DATE);
+            long id = mDbHelper.getWritableDatabase().insert(
+                    WeatherContract.WeatherEntry.TABLE_NAME, null, values);
+            if (id != -1) {
+                getContext().getContentResolver().notifyChange(uri, null);
+                return WeatherContract.WeatherEntry.buildWeatherUri(date);
+            } else {
+                throw new android.database.SQLException("Failed to insert row into " + uri);
+            }
+        default:
+            throw new UnsupportedOperationException("Unknown uri: " + uri);
+    }
+}	    
+	    \end{lstlisting}
+	    
+	    В insert нам передаётся uri таблички, куда мы хотим вставить значение и значение в классе ContentValues - это такая обёртка над переменными, чтобы с ней мог работать класс ContentResolver. С точки зрения идеологии - это множество пар ключ-значение. И есть много методов типа .getAsLong(String), getAsInteger(String)....
+	    
+	    Первым делом, в методе мы снова проверяем какого типа Uri нам дали. Нам здесь не могут дать uri на конкретную запись, иначе это - ошибка(как можно встваить значения в запись?), поэтому в case блоке только один случай.
+	    
+	    Сначала мы приводим значение к нормальному виду функцией normalizeDate, что конкретно она делает, рассмотрим чуть попозже. Затем, извлекаем дату из  ConentValues - она нам может понадобиться позже. Мы используем метод .getAsLong - так как значение у нас типа long. А извлекаем мы по ключу, по которому положили. Мы говорим, что будем дату всегда класть по ключу WeatherContract.WeatherEntry.COLUMN\_DATE, то есть по названию колонки в нашей табличке - вот, снова появился класс, вложенный в класс Contract.
+	    
+	    Из SQLiteOpenHelper можно доставать SQLiteDatabase, есть два разных метода - .getReadableDatabase - возвращает базу данных, предназначенную для чтения, и .getWritableDatabase - возвращает базу данных предназначенную для записи. Здесь нам надо вставить значения, поэтому мы вызываем метод .getWritableDatabase.
+	    
+	    На самом деле, в предыдущем рассмотренном нами методе в getWeather и getWeatherByDate будет вызываться .getReadableDatabase.
+	    
+	    А затем делаем запрос insert к этой базе данных. values здесь описывает что и куда вставлять, то есть ключ означает название столбца, а значение - непосредственно значение, которое вставляется в этот столбец. И вот именно здесь должен передаваться именно ContentValues. Туда также передаётся название таблички. А второй параметр null говоит о том, что если передался пустой ContentValues, то ничего вставлять не надо.
+    
+    Команда insert у SQLiteDatabase возвращает индекс строчки, куда вставилось значение. Если вставить его не получилось то вернёт -1. Поэтому при значении -1 мы кидаем Exception. Иначе, преобразовываем известные нам данные в Uri, чтобы вернуть его из метода. Мы используем метод buildWeatherUri, который специально для этого определили в Contract.
+    
+    Остался один непонятный момент со следующей строчкой: 
+    \begin{lstlisting}
+getContext().getContentResolver().notifyChange(uri, null);
+    \end{lstlisting}
+    
+    Мы изменили табличку. Но при этом кто-то может слушать это изменение, то есть кто-то, возможно, отслеживает изменение этой таблички. Чтобы уведомить о том, что табличка изменилась, надо вызвать эту строчку(она извещает того, кто следит за табличкой и того, кто следит непосредственно по uri).
+	    
+	    \item public int delete(...) - вызывается, если мы хотим удалить что-то из ContentProvider(читай, из нашей бд). Здесь обрабатываются запросы типа DELETE.
+	    
+	    Наш код выглядит так:
+	    \begin{lstlisting}
+@Override
+public int delete(Uri uri, String selection, String[] selectionArgs) {
+    switch (sUriMatcher.match(uri)) {
+        case WEATHER:
+            int count = mDbHelper.getWritableDatabase().delete(
+                    WeatherContract.WeatherEntry.TABLE_NAME, selection, selectionArgs);
+            if (count > 0) {
+                getContext().getContentResolver().notifyChange(uri, null);
+            }
+            return count;
+        default:
+            throw new UnsupportedOperationException("Unknown uri: " + uri);
+    }
+}	    
+	    \end{lstlisting}
+	    Удаление может происходить только по табличке, поэтому мы проверяем, что наш Uri верный(что указывает он на всю табличку, а не на запись). Затем, аналогично предыдущим методам мы вызываем метод у mdbHelper - возвращающий SQLiteDatabase для изменений, и у неё вызываем метод delete, как мы делали с insert. В качестве параметров надо указать название таблички и выборку, по которой мы будем удалять - selection(условие) и selectionArgs(значения этого условия).
+	    
+	    Метод возвращает число - количество удалённых звписей. И если это число больше нуля, то табличка изменилась и об этом надо всех уведомить.
+	    \item public int update(...) - вызывается, если мы хотим обновить какую-то запись в ContentProvider(читай, в нашей бд). Здесь обрабатываются запросы типа UPDATE.
+	    Наш код выглядит так:
+	    \begin{lstlisting}
+@Override
+public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+    switch (sUriMatcher.match(uri)) {
+        case WEATHER:
+            int count = mDbHelper.getWritableDatabase().update(
+                    WeatherContract.WeatherEntry.TABLE_NAME, values, selection, selectionArgs);
+            if (count > 0) {
+                getContext().getContentResolver().notifyChange(uri, null);
+            }
+            return count;
+        default:
+            throw new UnsupportedOperationException("Unknown uri: " + uri);
+    }
+}	    
+	    \end{lstlisting}
+	    Здесь мы тоже обрабатываем только uri указывающий на всю табличку. Аналогично предыдущим методам вызывается метод у SQLiteDatabase, возвращается количество изменённых, а затем если оно больше 0, то табличка изменилась и надо оповестить об этом.
+	    \item public int bulkInsert(...) - метод, позволяющий вставлять сразу пачку значений(запросы типа INSERT).
+	    Он выглядит так:
+	    \begin{lstlisting}
+@Override
+    public int bulkInsert(Uri uri, @NonNull ContentValues[] values) {
+        switch (sUriMatcher.match(uri)) {
+            case WEATHER:
+                SQLiteDatabase db = mDbHelper.getWritableDatabase();
+                int count = 0;
+                db.beginTransaction();
+                try {
+                    for (ContentValues value : values) {
+                        normalizeDate(value);
+                        long id = db.insert(WeatherContract.WeatherEntry.TABLE_NAME, null, value);
+                        if (id != -1) {
+                            count++;
+                        }
+                    }
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
+                getContext().getContentResolver().notifyChange(uri, null);
+                return count;
+            default:
+                throw new UnsupportedOperationException("Unknown uri: " + uri);
+        }
+    }
+
+}	    
+	    \end{lstlisting}
+	    
+	    Мы ожидаем получить на вход uri таблички и затем значения, которые хотим вставить. Аналогично insert-у, если uri?переданный нам не соответсвует табличке, а соответсвует записи, мы не сможем его обработать и кидаем Exception. Аналогично insert-у же мы получаем SQLiteDatabase, доступную на запись. В count будем считать количество удачно вставленных записей. 
+	    
+	    db.beginTransaction - переключает нас в "монопольный режим". Чтобы пока мы изменяем базу данных никто больше её не трогал. В конце после этого надо будет вызвать метод db.endTransaction. Если перед этим методом не вызвать db.setTransactionSuccessful, то все изменения откатяться.
+	    
+	    Потом начинаем вставлять. Для каждого значения нормализуем его, как это было с insert, а потом вставляем в базу данных и если прошло удачно, то увеличиваем количество удачных операций. Возвращаем его.
+	    
+	    \item public String getType(Uri uri). Метод берёт Uri, на который может отвечать наш ContentProvider, и возвращает по нему тип записи для этого Uri. В нашем случае, для возвращаемого значения может быть только два варианта. Либо, это специфичный Uri, который указывает на одну запись, либо он указывает сразу на группу записей. Тип Uri определяется с помощью sUriMatcher, который мы построили в самом начале с помощью метода buildUriMatcher.
+	    
+	    В нашем случае, метод работает следующим образом - если в качестве Uri передаётся запись, указывающая на всю табличку, то мы возвращаем тип множественный(то есть это запрос ко всем элементам таблички), а если путь к конкретной записи, то тип Uri - тип одной записи.
+	    
+        \begin{lstlisting}
 @Override
 public String getType(Uri uri) {
     switch (sUriMatcher.match(uri)) {
@@ -875,11 +1123,8 @@ public String getType(Uri uri) {
     }
 }
 	    \end{lstlisting}
-	    \item Закрывать базу данных не нужно, несмотря на то, что, казалось бы, работа с базой данных - это практически то же самое, что работа с файлами. Есть метод, который позволяет это сделать, но он создан исключительно для дебага.
-	\end{itemize}
-	Поподробнее о методах:
-	\begin{itemize}
-    	\item query. Допустим пользователь вызвал query. Сначала мы определяем тип этого запроса по Uri - конкретная запись, конкретная запись с какими-то параметрами или группа записей. Затем вызываем соответсвующие методы, в которых уже в зависимости от типа делаем запросы(query) к бд. В этой query projection задают колонки, которые мы котим получить; selection - это условие, по которому мы выбираем; selectionArgs - конкретные значения для условия и т.д. Для того, чтобы прочитать что-нибудь из базы данных, мы используем метод .getReadableDatabase().
+	        	
+	    \item getWeather и getWeatherByDate.
     	\begin{lstlisting}
 private Cursor getWeather(String[] projection, String selection, String[] selectionArgs, String sortOrder)
 {
@@ -905,56 +1150,33 @@ private Cursor getWetherByDate(Uri uri, String[] projection, String sortOrder) {
             null,
             sortOrder);
 }
-            ...           
-@Override
-public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-    Cursor cursor;
-    switch (sUriMatcher.match(uri)) {
-        case WEATHER:
-            cursor = getWeather(projection, selection, selectionArgs, sortOrder);
-            break;
-        case WEATHER_WITH_DATE:
-            cursor = getWetherByDate(uri, projection, sortOrder);
-            break;
-        default:
-            throw new UnsupportedOperationException("Unknown uri: " + uri);
+    	\end{lstlisting}
+    	
+    	Как мы видим, за getWeather и getWeatherByDate скрывается всего лишь то же получение базы данных из mdbHelper - .getReadableDatabase, так как мы считываем значения из базы данных. А затем вызываем метод query с запросом.
+    	
+    	.getWeather совсм простой метод, он просто берёт и передаёт всё, что ему дали в качестве параметров в запрос к SQLiteDatabase.
+    	
+    	.getWeatherByDate немного более сложный метод, так как нам надо преобразовать запрос к строчке в запрос ко всей бд(SQLiteDatabase умеет обрабатывать запросы только ко всей табличке). Таким образом, мы создаём selection на равенство значения в COLUMN\_DATE, а selectionArgs достаём из Uri - это просто строковое представление нашей даты. Сначала используем опредлённый нами в Contract-е метод .getDateFromUri, а затем преобразуем дату в строчку.
+    	
+    	Возвращаем мы и там, и там - Cursor.
+    	\item Остался единственный метод, который мы не обсудили:
+    	\begin{lstlisting}
+private static void normalizeDate(ContentValues values) {
+    if (values.containsKey(WeatherContract.WeatherEntry.COLUMN_DATE)) {
+        long date = WeatherContract.normalizeDate(
+                values.getAsLong(WeatherContract.WeatherEntry.COLUMN_DATE));
+        values.put(WeatherContract.WeatherEntry.COLUMN_DATE, date);
     }
-    cursor.setNotificationUri(getContext().getContentResolver(), uri);
-    return cursor;
 }    	
     	\end{lstlisting}
-	    \item insert. Чтобы записать что-либо в базу данных, мы используем метод .getWritableDatabase(). Принцип точно такой же - мы не пишем явно SQL-запрос, мы передаём только параметры.
-	    \begin{lstlisting}
-@Override
-public Uri insert(Uri uri, ContentValues values) {
-    switch (sUriMatcher.match(uri)) {
-        case WEATHER:
-            normalizeDate(values);
-            long date = values.getAsLong(WeatherContract.WeatherEntry.COLUMN_DATE);
-            long id = mDbHelper.getWritableDatabase().insert(
-                    WeatherContract.WeatherEntry.TABLE_NAME, null, values);
-            if (id != -1) {
-                getContext().getContentResolver().notifyChange(uri, null);
-                return WeatherContract.WeatherEntry.buildWeatherUri(date);
-            } else {
-                throw new android.database.SQLException("Failed to insert row into " + uri);
-            }
-        default:
-            throw new UnsupportedOperationException("Unknown uri: " + uri);
-    }
-}	    
-	    \end{lstlisting}
-	\end{itemize}
-	Хорошо бы после изменения чего-либо в базе данных оповестить тех, кто использует данные, об этом. Для этого есть метод .notifyChange(uri, null), вызывающийся так:
-    \begin{lstlisting}
-getContext().getContentResolver().notifyChange(uri, null);    
-    \end{lstlisting} Этому методу передаётся Uri, по которому мы что-то изменили.
+    	Он проверяет, верно ли, что values содержит дату, то есть проверяет есть ли там пара, в которой ключ совпадает с названием еолонки для даты, и если да, то нормализует её с помощью метода нормализации, который мы описали в Contract, а потом кладёт обратно уже преобразованное значение.
+	    \item Закрывать базу данных не нужно, несмотря на то, что, казалось бы, работа с базой данных - это практически то же самое, что работа с файлами. Есть метод, который позволяет это сделать, но он создан исключительно для дебага.
+    \end{itemize}
+
+    Ну вот и всё, с базами данных мы разобрались.
     
     В общем, ContentProvider - это просто класс, который делает запросы к базе данных, скрывая это за интерфейсом Uri.
     
-    Общая реализация ContentProvider:  
-   \href{https://github.com/krinkinmu/forecast/blob/master/app/src/main/java/edu/spbau/android/forecast/WeatherProvider.java}{здесь} 
-
 \section{Fragments}
     \begin{itemize}
 	\item Весь UI в большинстве приложений распихан по фрагментам.
