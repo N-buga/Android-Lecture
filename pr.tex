@@ -72,7 +72,11 @@
 
     Activity - это класс и у него есть некоторые методы, которые вызываются во время его жизни. Каждый Activity имеет определённый жизненный цикл:
 
+<<<<<<< HEAD
 	\includegraphics{LifeCycle.png}
+=======
+	\includegraphics{activity_lifecycle.png}
+>>>>>>> 7257234cd4f8a1229a5d50f3966045f111454229
 	
 	Когда запускается Activity вызывается метод .onCreate(), потом .onStart() и потом .onResume(), затем приложение показывается на экране. Соответсвенно, ActivityRunning на картинке означает, что Activity на экране и с ним взаимодействует пользователь. Все статические действия(создание каких-нибудь классов, переменных) обычно делают в .onCreate(). Сбор окна приложения - создание элементов или загрузка Layout - обычно происходит в .onStart().
 	
@@ -145,6 +149,7 @@ public class MainActivity extends ActionBarActivity {
     mLocationManager - поле, которое будет хранить в себе специальный класс, с помощью которого мы будем узнавать о нашем местоположении. 
     
     mLocationChangedIntent - это поле класса PendingIntent, котороый делает почти то же, что и Intent, с помощью него мы потом запустим другую часть нашего приложения. Единственное отличие PendingIntent от Intent - это то, что когда PendingIntent запускает какую-нибудь сущность, то она запускается с правами исходного приложения. 
+<<<<<<< HEAD
     
     Мы наследуемся от ActionBarActivity - которая добавляет полосочку(ActionBar) наверху экрана. Там есть меню, которое раскрывается, а onOptionsItemSelected обрабатывает нажатие на какой-то пункт. onCreateOptionsMenu - вызывается при создании ActionBar. Причём, если он вернёт false, то меню не покажется, а если true - то отрисуется. onOptionsItemSelected должно возвращать true, если у него получилось обработать событие.
     
@@ -224,6 +229,87 @@ protected void onCreate(Bundle savedInstanceState) {
     
     Класс Bundle создаётся для сохранения важной информации(например, пользовательского UI), в onCreate его можно восстановить. А onSaveInstanceState(Bundle savedInstanceState) можно переопределить и добавит в Bundle ещё что-то своё. Вызывается onSaveInstanceState перед onPause(). Но нам сейчас это не особенно важно - важно, что обязательно надо вызвать тот же метод у супер-класса.
     
+=======
+    
+    Мы наследуемся от ActionBarActivity - которая добавляет полосочку(ActionBar) наверху экрана. Там есть меню, которое раскрывается, а onOptionsItemSelected обрабатывает нажатие на какой-то пункт. onCreateOptionsMenu - вызывается при создании ActionBar. Причём, если он вернёт false, то меню не покажется, а если true - то отрисуется. onOptionsItemSelected должно возвращать true, если у него получилось обработать событие.
+    
+    Реализуем их:
+    
+    \begin{lstlisting}
+@Override
+public boolean onCreateOptionsMenu(Menu menu) {
+    getMenuInflater().inflate(R.menu.menu_main, menu);
+    return true;
+}
+
+@Override
+public boolean onOptionsItemSelected(MenuItem item) {
+    int id = item.getItemId();
+
+    if (id == R.id.action_settings) {
+        return true;
+    }
+
+    return super.onOptionsItemSelected(item);
+}    
+    \end{lstlisting} 
+    
+    Здесь мы в функции onCreateOptionsMenu говорим, что Menu будет рисоваться так, как мы это описали в layout(это xml файлики, описывающие разметку), а в onOptionsItemSelected - в if обрабатывается действие нажатия на конкретный пункт меню. В данном случае, мы ничего не делаем, просто говорим true - обработали. Можно передать обработку нажатия на пункт меню нашему предку, что мы и делаем во всех остальных случаях.
+    
+    Все layouts для Activity лежат в директории main/res/layout. А layout для menu лежит в main/res/menu. Наш файлик-xml назыается menu\_main.xml(собственно, по этому имени и происходит загрузка этого layout как разметки для меню). В файлике:
+    
+    \begin{lstlisting}
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".MainActivity">
+
+    <item
+        android:id="@+id/action_settings"
+        android:title="@string/action_settings"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+
+</menu>    
+    \end{lstlisting}
+    
+    У нас ровно 1 пункт в меню, описывающийся в теге item. Мы настроили для него title(строка, которая отображаетсяв меню), его id - по нему мы находим этот item в onOptionsItemSelected, и другие.
+    
+    В андроиде принято все константы хранить в директории res/values. И использовать переменные, им соответсвующие. Там же(в res/values) есть специальное место для хранения строковых литералов, называется файл strings.xml. Там мы храним строковые литералы. Вот наш файлик:
+    
+    \begin{lstlisting}
+<resources>
+    <string name="app_name">Forecast</string>
+    <string name="action_settings">Settings</string>
+</resources>   
+    \end{lstlisting}
+    
+    Как видно, мы храним строковый литерал "Settings" в переменной action\_settings. И для описания item в нашем layout для меню мы используем переменную, хранящую этот литерал.
+    
+    Идём дальше. Рассмотрим метод onCreate() нашей Activity:
+    
+    \begin{lstlisting}
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+    if (savedInstanceState == null) {
+        getSupportFragmentManager().beginTransaction()
+                .add(R.id.container, new ForecastFragment())
+                .commit();
+    }
+
+    mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+    Intent intent = new Intent(this, LocationChangedReceiver.class);
+    mLocationChangedIntent =
+            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+}   
+    \end{lstlisting}  
+    
+    Класс Bundle создаётся для сохранения важной информации(например, пользовательского UI), в onCreate его можно восстановить. А onSaveInstanceState(Bundle savedInstanceState) можно переопределить и добавит в Bundle ещё что-то своё. Вызывается onSaveInstanceState перед onPause(). Но нам сейчас это не особенно важно - важно, что обязательно надо вызвать тот же метод у супер-класса.
+    
+>>>>>>> 7257234cd4f8a1229a5d50f3966045f111454229
      setContentView - устанавливает разметку Activity, мы загружаем её из xml файла в директории layout, как говорилось ранее - в layout хранятся разметки для Activity.
      
      В mLocationManager мы получаем LocationManager.
@@ -1178,6 +1264,7 @@ private static void normalizeDate(ContentValues values) {
     В общем, ContentProvider - это просто класс, который делает запросы к базе данных, скрывая это за интерфейсом Uri.
     
 \section{Fragments}
+<<<<<<< HEAD
 Создадим класс ForecastFragment - наследник класса Framgent.\newline
 Фрагменты - в некотором роде мини-Activity, которые располагаются на основном Activity и имеют свой собственный lifecycle, немного отличающийся от lifecycle Activity. На одном Activity может быть несколько фрагментов, их жизненный цикл прекращается после прекращения жизненного цикла Activity.\newline
 Зачем нужны фрагменты? Например, чтобы приложение нормально выглядело и на телефоне, и на планшете: если на экране планшета останется много свободного места, это плохо, поэтому возможно на Activity в телефоне показывать один фрагмент, а в планшете - два:\newline
@@ -1256,6 +1343,12 @@ public class MainActivity extends ActionBarActivity {
     \end{lstlisting}
 Здесь мы получаем FragmentManager - интерфейс для взаимодействия с Fragment внутри Activity, и у него вызываем метод beginTransaction, который начинает конвейер операций с фрагментами, дальше добавляем новый ForecastFragment, указав контейнер, куда он отправится, и, наконец, исполняем все действия с помощью метода commit. По идентификатору R.id.container мы найдем layout для MainActivity, так что мы просто располагаем фрагмент на нем.
 
+=======
+    \begin{itemize}
+	\item Весь UI в большинстве приложений распихан по фрагментам.
+	\item Подробнее про Фрагменты можно почитать тут: \href{http://developer.alexanderklimov.ru/android/theory/fragments.php}{тык}
+    \end{itemize}
+>>>>>>> 7257234cd4f8a1229a5d50f3966045f111454229
 \section{ListView \& Adapter}   
     Единственная компонента нашего фрагмента - это список, который отрисовывается с помощью ListView. \newline
     ListView и Adapter - это в некотором смысле андроидовская реализация того, что называют Model-View Controller.
